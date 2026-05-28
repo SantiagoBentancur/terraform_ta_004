@@ -526,6 +526,87 @@ moved {
   to   = aws_instance.frontend
 }
 ```
+---
+## 30. Provisioners (The "Last Resort")
+
+Terraform is a **declarative** tool (you describe the end state, and Terraform figures out how to build it). Provisioners break this rule by being **imperative** (executing a step-by-step script). 
+
+Because provisioners execute scripts outside of Terraform's control, Terraform cannot track the changes they make in the `.tfstate` file. For this reason, HashiCorp officially considers provisioners a **Last Resort**. You should only use them when standard configuration management tools (like Ansible, Chef, or standard AWS `user_data`) cannot solve the problem.
+
+### `local-exec`
+* **Behavior:** Runs a script or command locally on the machine executing Terraform (your laptop, or the CI/CD pipeline server).
+* **Use Case:** Triggering an external API to announce a deployment finished, or writing an output IP address to a local text file.
+```hcl
+resource "aws_instance" "web" {
+  # ... other config ...
+
+  provisioner "local-exec" {
+    command = "echo ${self.public_ip} >> server_ips.txt"
+  }
+}
+```
+
+### `remote-exec`
+* **Behavior:** Logs into the newly created infrastructure over the network and executes commands directly on the machine.
+* **Use Case:** Installing software, starting services, or bootstrapping a node.
+* **Requirement:** It **must** be paired with a `connection` block so Terraform knows how to authenticate.
+```hcl
+resource "aws_instance" "web" {
+  # ... other config ...
+
+  provisioner "remote-exec" {
+    inline = [
+      "sudo apt-get update",
+      "sudo apt-get install -y nginx"
+    ]
+  }
+}
+```
+
+### The `connection` Block
+Nested inside the resource, this block provides the network credentials (SSH or WinRM) required by `remote-exec`.
+```hcl
+  connection {
+    type        = "ssh"
+    user        = "ubuntu"
+    private_key = file("~/.ssh/id_rsa") # Reads the local private key file
+    host        = self.public_ip
+  }
+```
+
+### Destroy-Time Provisioners
+By default, provisioners run immediately *after* a resource is created. You can use `when = destroy` to force a script to run immediately *before* a resource is deleted.
+* **Use Case:** Draining connections from a server, or telling a load balancer to stop sending traffic to the node before Terraform destroys it.
+```hcl
+  provisioner "local-exec" {
+    when    = destroy
+    command = "echo 'Server is being deleted!' > alert.txt"
+  }
+```
+
+### ⚠️ The Tainted Resource Problem
+If a provisioner fails halfway through (e.g., a script hits an error), Terraform marks the entire resource as **tainted**. This means Terraform considers the resource corrupted. The next time you run `terraform apply`, Terraform will automatically destroy the tainted resource and recreate it from scratch.
+
+### Error Handling (`on_failure`)
+By default, if a provisioner script fails, Terraform taints the resource (`on_failure = fail`). You can override this behavior so that Terraform ignores the error and continues the deployment without tainting the resource.
+
+* **Warning:** Use this with extreme caution. It can lead to "silent failures" where Terraform reports a successful deployment, but the software on your server is completely broken or missing.
+
+```hcl
+resource "aws_instance" "web" {
+  # ... other config ...
+
+  provisioner "remote-exec" {
+    # If this script fails, print a warning but DO NOT taint the EC2 instance
+    on_failure = continue
+    
+    inline = [
+      "sudo apt-get install -y imaginary-software-that-does-not-exist"
+    ]
+  }
+}
+```
+
 
 # 📚 Terraform Infrastructure Labs: Master Index
 
