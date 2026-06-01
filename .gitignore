@@ -3,7 +3,9 @@
 *.tfstate.*
 *.tfvars
 *.tfvars.json
-*.plan
+*.plan.terraform.lock
+*.txt
+*.terraform.lock*
 crash.log
 crash.*.log
 override.tf
@@ -12,3 +14,6 @@ override.tf.json
 *_override.tf.json
 .terraformrc
 terraform.rc
+**/*.pem
+**/*plan
+playground/*

@@ -1,4 +1,4 @@
-# 🛠️ Lab 8: Nested Resource Loops (Dynamic Blocks)
+# 🛠️ Lab 7: Nested Resource Loops (Dynamic Blocks)
 
 ## Concepts to Practice
 * Nested block configuration
@@ -26,7 +26,7 @@ Delete the hardcoded blocks and replace them with a `dynamic` block.
 
 ---
 
-## Terraform Code (`lab_8.tf`)
+## Terraform Code (`lab_7.tf`)
 
 ### Phase 1 Code: The Static Approach
 Copy this into your `main.tf` and run `terraform plan` to see what it generates.
