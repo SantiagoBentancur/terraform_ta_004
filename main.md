@@ -305,7 +305,7 @@ terraform {
   }
 }
 ```
-
+git commit -m "Fix: renamed folder and added lab_10"
 ---
 
 ## 19. Resource Targeting (`-target`)
@@ -607,6 +607,150 @@ resource "aws_instance" "web" {
 }
 ```
 
+## 31. Terraform Modules
+
+According to the official HashiCorp documentation, **a module is a container for multiple resources that are used together.** Modules are the primary way to package and reuse resource configurations with Terraform.
+
+Every Terraform configuration has at least one module, known as its **Root Module**, which consists of the resources defined in the `.tf` files in the main working directory. 
+
+A module can call other modules, which lets you include their resources into the configuration in a concise, declarative way. Modules that are called by another configuration are referred to as **Child Modules**.
+
+### The Module Data Flow Diagram
+When using modules, you must understand how data enters and exits the isolated module block. 
+
+* **Variables** act as the **Inputs**, flowing from the Root Module *into* the Child Module.
+* **Outputs** act as the **Returns**, flowing from the Child Module back *out* to the Root Module.
+
+```text
++-----------------------------------+             +----------------------------------+
+|           ROOT MODULE             |             |       CHILD MODULE (./ec2)       |
+|                                   |  VARIABLES  |                                  |
+|  module "my_server" {             | ===========>|  variable "env_type" {}          |
+|    source   = "./ec2"             |  (Inputs)   |                                  |
+|    env_type = "prod"              |             |  resource "aws_instance" "app" { |
+|  }                                |             |    tags = { Env = var.env_type } |
+|                                   |   OUTPUTS   |  }                               |
+|  resource "aws_dns" "record" {    | <===========|                                  |
+|    ip = module.my_server.node_ip  |  (Returns)  |  output "node_ip" {              |
+|  }                                |             |    value = aws_instance.app.ip   |
++-----------------------------------+             +----------------------------------+
+```
+
+### Passing Variables into a Module
+When you build a custom child module, you declare `variables` to avoid hardcoding values. When the Root Module calls that child module, it must supply values for those variables directly inside the `module` block.
+
+**1. Inside the Child Module (`./modules/vpc/variables.tf`):**
+```hcl
+variable "vpc_cidr" {
+  description = "The CIDR block for the custom VPC"
+  type        = string
+}
+```
+
+**2. Inside the Root Module (`main.tf`):**
+```hcl
+module "custom_vpc" {
+  source   = "./modules/vpc"
+  
+  # Passing the value into the child module's variable
+  vpc_cidr = "10.0.0.0/16"
+}
+```
+
+### Extracting Outputs & Cross-Referencing Resources
+A Root Module cannot natively "see" the resources inside a Child Module. If your child module creates an EC2 instance, the root module does not know its ID or IP address. You must explicitly export that data using an `output` block in the child module.
+
+**1. Inside the Child Module (`./modules/ec2/outputs.tf`):**
+```hcl
+output "server_public_ip" {
+  description = "The public IP address of the generated server"
+  value       = aws_instance.web.public_ip
+}
+```
+
+**2. Inside the Root Module (`main.tf`):**
+Once the child module exports the output, you can reference it in other resources within the Root Module using the syntax: `module.<MODULE_NAME>.<OUTPUT_NAME>`
+
+```hcl
+module "frontend" {
+  source = "./modules/ec2"
+}
+
+# Cross-referencing the module's output in a completely different resource
+resource "aws_route53_record" "www" {
+  zone_id = aws_route53_zone.main.zone_id
+  name    = "www.myapp.com"
+  type    = "A"
+  ttl     = 300
+  
+  # Calling the element from the module!
+  records = [module.frontend.server_public_ip]
+}
+```
+
+### Module Sources
+When defining the `source` argument, Terraform supports various origins:
+* **Local Paths:** `source = "./modules/vpc"` *(Must start with `./` or `../`)*
+* **Terraform Registry:** `source = "terraform-aws-modules/vpc/aws"`
+* **Version Control (Git):** `source = "git::https://github.com/user/repo.git"`
+
+### Choosing the Right Public Module
+When sourcing modules from the public Terraform Registry:
+* ✅ **Do:** Choose modules with the **"Verified"** badge (maintained by HashiCorp or official partners). Look for high download counts and active community contributions.
+* ❌ **Don't:** Avoid using unverified modules created by random individuals, as they might be abandoned or contain security flaws.
+
+### Standard Module Structure (HashiCorp Best Practices)
+If you are building custom modules, follow HashiCorp's Standard Module Structure. Separate your code into at least these files:
+1. **`main.tf`**: Contains the primary resource blocks.
+2. **`variables.tf`**: Defines the input parameters (no hardcoded values).
+3. **`outputs.tf`**: Defines the data returned to the Root Module.
+4. **`README.md`**: Mandatory documentation.
+5. **`versions.tf`**: Defines required Terraform and provider versions.
+
+### 🚨 The Provider Rule (Exam Trap)
+**Never** include a `provider` block (like AWS credentials or regions) inside a Child Module. Providers must be strictly defined in the Root Module. Child modules will automatically inherit that configuration. Hardcoding a provider inside a child module makes it impossible to reuse across multiple regions.
+
+### Requirements for Publishing to the Terraform Registry
+If you want to share your custom module publicly, HashiCorp enforces strict rules:
+1. **GitHub Repository:** The code must be hosted on a public GitHub repository.
+2. **Strict Naming Convention:** The repository *must* be named exactly: `terraform-<PROVIDER>-<NAME>` *(Example: `terraform-aws-webserver`)*.
+3. **Release Tags:** You must use Git release tags (e.g., `v1.0.0`) so users can pin specific versions.
+
+---
+
+## 32. Terraform Workspaces (Environment Management)
+
+While modules help you separate and reuse your *code*, **Workspaces help you separate your *state* (`terraform.tfstate`)**.
+
+Workspaces allow you to use the exact same directory of Terraform code while maintaining completely isolated, independent state files. This is ideal for managing multiple environments (Dev, QA, Prod) without duplicating your `.tf` files.
+
+### How do they work?
+By default, you are always working in a workspace named `default`. When you create a new workspace (e.g., `dev`), Terraform creates a blank, isolated state under the hood.
+* `terraform workspace new dev`: Creates a new workspace named "dev".
+* `terraform workspace select prod`: Switches to the "prod" workspace.
+* `terraform workspace list`: Shows all available environments.
+
+### The Dynamic `${terraform.workspace}` Variable
+The true power of workspaces is that you can use the current environment's name directly inside your code to make dynamic decisions or name resources.
+
+```hcl
+resource "aws_s3_bucket" "app_data" {
+  # If in the 'dev' workspace, the bucket is named "my-app-data-dev"
+  # If in 'prod', it becomes "my-app-data-prod"
+  bucket = "my-app-data-${terraform.workspace}"
+}
+
+resource "aws_instance" "server" {
+  ami = "ami-123456"
+  # Using a conditional: If 'prod' use t3.large, otherwise use t3.micro
+  instance_type = terraform.workspace == "prod" ? "t3.large" : "t3.micro"
+}
+```
+
+### Official Workspace Limitations
+HashiCorp recommends using Workspaces to test identical architectures in parallel development environments. However, for environments with strict security or compliance requirements (where Production must be completely isolated from Development), **HashiCorp strongly recommends using separate physical directories and code repositories** rather than relying solely on workspaces.
+
+---
 
 # 📚 Terraform Infrastructure Labs: Master Index
 
@@ -643,3 +787,27 @@ Welcome to the practical lab series for mastering Infrastructure as Code (IaC) w
 ### [Lab 6: The Blast Radius (`count` vs. `for_each`)](#)
 * **Objective:** Deploy parallel infrastructure and simulate a Day 2 operations modification (deleting an item) to witness the catastrophic index shift of `count` versus the safe targeting of `for_each`.
 * **Concepts Covered:** Side-by-side execution, type conversion (`toset()`), state file locking (`[0]` vs `["key"]`), and safely modifying active production environments.
+
+### [Lab 7: Network Security & Firewalls](#)
+* **Objective:** Establish secure network boundaries and control inbound/outbound traffic to your cloud resources.
+* **Concepts Covered:** `aws_security_group`, ingress/egress rules, CIDR blocks, port mapping (HTTP/SSH), and attaching security groups to instances (`vpc_security_group_ids`).
+
+### [Lab 8: Server Bootstrapping & Provisioners](#)
+* **Objective:** Automate post-deployment server configuration to instantly serve a web application upon creation.
+* **Concepts Covered:** `user_data` bash scripts, `remote-exec` and `local-exec` provisioners, SSH `connection` blocks, and local state extraction.
+
+### [Lab 9: Lifecycle Management & Guardrails](#)
+* **Objective:** Protect critical infrastructure from accidental deletion and safely navigate AWS dependency deadlocks during resource modifications.
+* **Concepts Covered:** The `lifecycle` meta-argument, `create_before_destroy` (bypassing the "in-use" firewall trap), and `prevent_destroy` (hard locks for data vaults).
+
+### [Lab 10: Provider Versioning & Stability](#)
+* **Objective:** Future-proof the infrastructure by pinning specific versions to avoid breaking changes from upstream HashiCorp or AWS updates.
+* **Concepts Covered:** The `terraform` settings block, `required_providers`, `required_version` constraints, provider lockfiles, and safe initialization upgrades (`init -upgrade`).
+
+---
+
+## 🏆 Architecture Checkpoints
+
+### [Checkpoint 1: The SAA "Multi-AZ Web Tier"](#)
+* **Objective:** Architect a highly available, Multi-AZ web environment adhering to AWS Solutions Architect Associate (SAA) standards.
+* **Concepts Covered:** Synthesizing dynamic AMIs, `for_each` Availability Zone scaling, variable validation rules, complex `output` mapping using `for` loops, and combining advanced lifecycle guardrails in a single production-ready deployment.
