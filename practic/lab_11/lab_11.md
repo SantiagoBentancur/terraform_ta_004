@@ -71,15 +71,17 @@ Architectural Requirements & Implementation Rules
 
 ### 4\. Module B Requirements (`modules/storage_vault/`)
 
--   **Provider Management:** Retain the `terraform {}` block and `provider "aws" {}`.
+-   **Inputs (Variables):** `bucket_prefix` (string) to define the unique identifier for the S3 bucket.
 
--   **Data Source Integration:** Move the `aws_ami` data source to the root (so it can be shared or updated globally).
+-   **Logic:** Defines an `aws_s3_bucket` resource. Uses the passed `bucket_prefix` variable to ensure resource naming adheres to project standards.
 
--   **Orchestration:** Call both the `web_cluster` module and the `storage_vault` module.
+-   **Outputs:** Returns the following values for use in the root module:
 
--   **Variable Injection:** Pass the `ami_id` (retrieved from the data source) and `target_zones` (from a `.tfvars` file) into the modules.
+-   `bucket_id`: The name of the provisioned S3 bucket.
 
--   **Output Aggregation:** Capture the outputs from both modules and present the final cluster inventory.
+-   `bucket_arn`: The ARN of the bucket.
+
+-   `bucket_domain_name`: The domain name associated with the bucket.
 
 ### 5\. Implementation Rules (Field Standards)
 

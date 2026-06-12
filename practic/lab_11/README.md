@@ -64,4 +64,3 @@ terraform apply
 
 * The `web_cluster` module deploys EC2 instances across the specified Availability Zones.
 * The `storage_vault` module provides a dedicated S3 bucket for storing backups and project data.
-* Review the execution plan carefully before applying changes to your AWS environment.

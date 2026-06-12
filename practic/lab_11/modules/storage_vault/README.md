@@ -20,6 +20,8 @@ module "storage_vault" {
 
 ## Outputs
 
-| Name        | Type     | Description                             |
-| ----------- | -------- | --------------------------------------- |
-| `bucket_id` | `string` | The name (ID) of the created S3 bucket. |
+| Name | Type | Description |
+|---|---|---|
+| `bucket_id` | `string` | The name of the S3 bucket |
+| `bucket_arn` | `string` | The ARN of the bucket |
+| `bucket_domain_name` | `string` | The bucket domain name |
