@@ -46,6 +46,7 @@ terraform apply
 ├── main.tf
 ├── variables.tf
 ├── outputs.tf
+├── terraform.tfvars
 ├── modules/
 │   ├── web_cluster/
 │   │   ├── main.tf
