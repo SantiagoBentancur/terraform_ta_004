@@ -1,8 +1,6 @@
 **/.terraform/*
 *.tfstate
 *.tfstate.*
-*.tfvars
-*.tfvars.json
 *.plan.terraform.lock
 *.txt
 *.terraform.lock*
@@ -17,3 +15,4 @@ terraform.rc
 **/*.pem
 **/*plan
 playground/*
+*.zip
