@@ -5,9 +5,9 @@ variable "bucket_prefix" {
   
 }
 
-variable "prevent_destroy" {
-  description = "Whether to prevent the S3 bucket from being destroyed"
-  type        = bool
-  default     = false
+# variable "prevent_destroy" {
+#   description = "Whether to prevent the S3 bucket from being destroyed"
+#   type        = bool
+#   default     = false
   
-}
+# }

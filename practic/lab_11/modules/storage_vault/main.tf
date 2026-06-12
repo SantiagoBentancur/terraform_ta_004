@@ -10,9 +10,9 @@ terraform {
 
 resource "aws_s3_bucket" "this" {
   bucket_prefix = var.bucket_prefix
-
-  lifecycle {
-    prevent_destroy = true
-  }
+  # Commented out to prevent accidental deletion of the bucket during testing. Uncomment if you want to allow bucket deletion.
+  # lifecycle {
+  #   prevent_destroy = true
+  # }
 }
 

@@ -42,4 +42,12 @@ resource "aws_instance" "web_nodes" {
   instance_type = var.instance_type
 
   vpc_security_group_ids = [aws_security_group.web_traffic_rules.id]
+
+  tags = {
+    Name = "${var.name}-${each.value}"
+  }
+}
+
+output "cluster_inventory" {
+  value = {for aws_instance in aws_instance.web_nodes : aws_instance.availability_zone => aws_instance.public_ip}
 }
