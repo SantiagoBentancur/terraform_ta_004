@@ -28,6 +28,16 @@ terraform plan
 terraform apply
 ```
 
+## Inputs
+
+| Name                | Type           | Default | Description                                                               |
+| ------------------- | -------------- | ------- | ------------------------------------------------------------------------- |
+| `app_instance_type` | `string`       | N/A     | EC2 instance type used for the application instances.                     |
+| `app_target_zone`   | `list(string)` | N/A     | Availability Zones where the application instances will be deployed.      |
+| `app_bucket`        | `string`       | N/A     | Name or prefix used for the S3 backup bucket.                             |
+| `ami_id`            | `string`       | `null`  | Optional AMI ID override. If not provided, the latest Ubuntu AMI is used. |
+
+
 ## Root Outputs
 
 | Name                | Description                                                                      |
