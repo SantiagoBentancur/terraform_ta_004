@@ -27,15 +27,20 @@ lab_11/
 ├── main.tf          (Root: Orchestrator)
 ├── variables.tf     (Root: Definitions)
 ├── outputs.tf       (Root: Aggregated outputs)
+├── terraform.tfvars
+├── README.md
 └── modules/
     ├── web_cluster/
     │   ├── main.tf
     │   ├── variables.tf
     │   └── outputs.tf
+    │   └── README.md
     └── storage_vault/
         ├── main.tf
         ├── variables.tf
         └── outputs.tf
+        └── README.md
+
 ```
 
 Architectural Requirements & Implementation Rules
