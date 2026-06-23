@@ -13,11 +13,11 @@ resource "aws_vpc" "main" {
 
 resource "aws_subnet" "public_1" {
   vpc_id            = aws_vpc.main.id
-  availability_zone = var.az_1
-  cidr_block        = var.public_subnet_1_cidr
+  availability_zone = var.azs["az_1"]
+  cidr_block        = var.subnet_cidrs["public_1"]
 
   tags = {
-    Name        = "${var.env}-public-1"
+    Name        = "${var.env}-public-subnet-az-1"
     Environment = var.env
     Project     = var.project
     ManagedBy   = "Terraform"
@@ -27,11 +27,11 @@ resource "aws_subnet" "public_1" {
 
 resource "aws_subnet" "public_2" {
   vpc_id            = aws_vpc.main.id
-  availability_zone = var.az_2
-  cidr_block        = var.public_subnet_2_cidr
+  availability_zone = var.azs["az_2"]
+  cidr_block        = var.subnet_cidrs["public_2"]
 
   tags = {
-    Name        = "${var.env}-public-2"
+    Name        = "${var.env}-public-subnet-az-2"
     Environment = var.env
     Project     = var.project
     ManagedBy   = "Terraform"
@@ -41,11 +41,11 @@ resource "aws_subnet" "public_2" {
 
 resource "aws_subnet" "app_1" {
   vpc_id            = aws_vpc.main.id
-  availability_zone = var.az_1
-  cidr_block        = var.app_subnet_1_cidr
+  availability_zone = var.azs["az_1"]
+  cidr_block        = var.subnet_cidrs["app_1"]
 
   tags = {
-    Name        = "${var.env}-app-1"
+    Name        = "${var.env}-app-subnet-az-1"
     Environment = var.env
     Project     = var.project
     ManagedBy   = "Terraform"
@@ -54,11 +54,11 @@ resource "aws_subnet" "app_1" {
 
 resource "aws_subnet" "app_2" {
   vpc_id            = aws_vpc.main.id
-  availability_zone = var.az_2
-  cidr_block        = var.app_subnet_2_cidr
+  availability_zone = var.azs["az_2"]
+  cidr_block        = var.subnet_cidrs["app_2"]
 
   tags = {
-    Name        = "${var.env}-app-2"
+    Name        = "${var.env}-app-subnet-az-2"
     Environment = var.env
     Project     = var.project
     ManagedBy   = "Terraform"
@@ -68,11 +68,11 @@ resource "aws_subnet" "app_2" {
 
 resource "aws_subnet" "db_1" {
   vpc_id            = aws_vpc.main.id
-  availability_zone = var.az_1
-  cidr_block        = var.db_subnet_1_cidr
+  availability_zone = var.azs["az_1"]
+  cidr_block        = var.subnet_cidrs["db_1"]
 
   tags = {
-    Name        = "${var.env}-db-1"
+    Name        = "${var.env}-db-subnet-az-1"
     Environment = var.env
     Project     = var.project
     ManagedBy   = "Terraform"
@@ -81,11 +81,11 @@ resource "aws_subnet" "db_1" {
 
 resource "aws_subnet" "db_2" {
   vpc_id            = aws_vpc.main.id
-  availability_zone = var.az_2
-  cidr_block        = var.db_subnet_2_cidr
+  availability_zone = var.azs["az_2"]
+  cidr_block        = var.subnet_cidrs["db_2"]
 
   tags = {
-    Name        = "${var.env}-db-2"
+    Name        = "${var.env}-db-subnet-az-2"
     Environment = var.env
     Project     = var.project
     ManagedBy   = "Terraform"
