@@ -64,6 +64,12 @@ Subnets are distributed across two Availability Zones to provide fault tolerance
 | App    | Web Application Servers | AZ1 / AZ2          | `10.0.10.0/24`, `10.0.20.0/24` |
 | DB     | RDS Instances           | AZ1 / AZ2          | `10.0.30.0/24`, `10.0.40.0/24` |
 
+### Route Table Design
+
+The following diagram shows how public, private application, and isolated database subnets are associated with route tables across both Availability Zones.
+
+![Route table design for the three-tier architecture](assets/image.png)
+
 ### Networking Design Questions
 
 Before implementing the network module, consider the following questions:
