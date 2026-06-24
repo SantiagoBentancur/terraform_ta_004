@@ -117,7 +117,9 @@ resource "aws_eip" "nat_eip_az_1" {
 }
 
 resource "aws_eip" "nat_eip_az_2" {
+  count  = var.single_nat_gateway ? 0 : 1
   domain = "vpc"
+
   tags = {
     Name        = "${var.env}-nat-eip-az-2"
     Environment = var.env
@@ -142,7 +144,8 @@ resource "aws_nat_gateway" "nat_az_1" {
 }
 
 resource "aws_nat_gateway" "nat_az_2" {
-  allocation_id = aws_eip.nat_eip_az_2.id
+  count         = var.single_nat_gateway ? 0 : 1
+  allocation_id = aws_eip.nat_eip_az_2[0].id
   subnet_id     = aws_subnet.public_2.id
 
   depends_on = [aws_internet_gateway.gw]
@@ -229,7 +232,7 @@ resource "aws_route_table" "app_az_2" {
 resource "aws_route" "app_az_2_to_nat" {
   route_table_id         = aws_route_table.app_az_2.id
   destination_cidr_block = "0.0.0.0/0"
-  nat_gateway_id         = aws_nat_gateway.nat_az_2.id
+  nat_gateway_id         = var.single_nat_gateway ? aws_nat_gateway.nat_az_1.id : aws_nat_gateway.nat_az_2[0].id
 }
 
 resource "aws_route_table_association" "app_az_2" {
@@ -238,7 +241,6 @@ resource "aws_route_table_association" "app_az_2" {
 }
 
 # Tier 3
-
 resource "aws_route_table" "db_route" {
   vpc_id = aws_vpc.main.id
   tags = {

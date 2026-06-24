@@ -21,7 +21,6 @@ variable "subnet_cidrs" {
   }
 }
 
-
 variable "vpc_cidr" {
   type    = string
   default = "10.0.0.0/16"
@@ -35,3 +34,9 @@ variable "project" {
   type    = string
   default = "checkpoint-2"
 }
+
+variable "single_nat_gateway" {
+  type    = bool
+  default = false
+}
+

@@ -16,6 +16,8 @@ provider "aws" {
 
 module "network" {
   source  = "./modules/network"
-  env     = "PRD"
+  env     = "DEV"
   project = "checkpoint-2"
+  single_nat_gateway = true
+  
 }

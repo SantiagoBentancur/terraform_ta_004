@@ -142,6 +142,8 @@ Development and Production environments must maintain consistent architecture wh
 | Dev         | 1              | `db.t3.micro`          | No       |
 | Prod        | 2 (one per AZ) | `db.t3.small`          | Yes      |
 
+For the development environment, the network still creates both Availability Zones and all corresponding subnets so the layout remains consistent with production. However, to keep the lab simpler and reduce cost, dev provisions only one NAT Gateway. In that case, both private application subnets route outbound internet traffic through the NAT Gateway in the first public subnet.
+
 ---
 
 ## Dependency Logic
