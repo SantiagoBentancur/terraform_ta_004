@@ -8,15 +8,15 @@
 * **`terraform plan`**: Reads the current state and compares it against the desired state defined in your code. It outputs an execution plan showing exactly what resources will be created, modified, or destroyed, without actually making any changes.
 * **`terraform apply`**: Executes the actions proposed in the `terraform plan`. It makes the necessary API calls to the provider to create, update, or delete infrastructure so that the real-world status matches your configuration code.
 * **`terraform destroy`**: Safely deletes all the infrastructure managed by the current Terraform configuration (everything tracked in the `terraform.tfstate` file).
-* **`terraform destroy -target`**: Allows you to destroy a specific, single resource without affecting the rest of the infrastructure. 
+* **`terraform destroy -target`**: Allows you to destroy a specific, single resource without affecting the rest of the infrastructure.
     * *Syntax:* `Resource_Type.Local_Resource_Name`
     * *Example:* `terraform destroy -target=aws_instance.myec2`
 
 > **Note on Removing Resources via Code:** If you comment out or delete a resource block directly in your `.tf` files and run `terraform apply`, Terraform will notice the resource is missing from the Desired State and will automatically destroy it in the cloud. You do not need to run `terraform destroy` for this.
 
 > **Note on `terraform refresh` (Deprecated):**
-> * Its original purpose was to query the cloud provider and update the `terraform.tfstate` file to match the real-world status. 
-> * Nowadays, when you run `terraform plan` or `terraform apply`, Terraform automatically performs a refresh in the background before calculating changes. 
+> * Its original purpose was to query the cloud provider and update the `terraform.tfstate` file to match the real-world status.
+> * Nowadays, when you run `terraform plan` or `terraform apply`, Terraform automatically performs a refresh in the background before calculating changes.
 > * To safely update your state file to match reality without applying new code changes, the modern command is `terraform apply -refresh-only`. *(Terraform automatically creates a `terraform.tfstate.backup` file before modifying the state for recovery).*
 
 ---
@@ -43,13 +43,23 @@ When authenticating the AWS provider, you have several options:
 
 ---
 
-## 3. State Management (Current vs. Desired)
+## 3. Terraform Settings Block (`terraform {}`)
 
-Terraform operates using a **declarative** approach to infrastructure management. 
+The `terraform` block does not configure infrastructure; it configures the behavior of Terraform itself. This is critical for team consistency.
 
-* **Desired State:** What you write in your configuration files (`.tf`). It describes exactly how you want your infrastructure to look.
-* **Current State:** The actual state of your infrastructure existing in the real world (e.g., AWS). Terraform tracks this reality using the `terraform.tfstate` file.
-* **The Reconciliation Process:** When you run `terraform plan`, Terraform compares the Current State with your Desired State. It calculates the exact difference and proposes an execution plan. Running `terraform apply` executes that plan to align reality with your code.
+* **`required_version`**: Dictates the exact version of the Terraform CLI that is allowed to execute this code (e.g., `required_version = ">= 1.5.0"`).
+* **`required_providers`**: Dictates the specific cloud provider plugins and their versions.
+```hcl
+terraform {
+  required_version = "~> 1.5.0"
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 5.0"
+    }
+  }
+}
+```
 
 ---
 
@@ -76,7 +86,17 @@ While you can write all code in a single file, standard best practices dictate s
 
 ---
 
-## 6. Attributes & Interpolation
+## 6. State Management (Current vs. Desired)
+
+Terraform operates using a **declarative** approach to infrastructure management.
+
+* **Desired State:** What you write in your configuration files (`.tf`). It describes exactly how you want your infrastructure to look.
+* **Current State:** The actual state of your infrastructure existing in the real world (e.g., AWS). Terraform tracks this reality using the `terraform.tfstate` file.
+* **The Reconciliation Process:** When you run `terraform plan`, Terraform compares the Current State with your Desired State. It calculates the exact difference and proposes an execution plan. Running `terraform apply` executes that plan to align reality with your code.
+
+---
+
+## 7. Attributes & Interpolation
 
 * **Cross-Reference Attributes:** Reference the attribute of one resource to use in a different resource.
     * *Syntax:* `<RESOURCE_TYPE>.<NAME>.<ATTRIBUTE>`
@@ -85,7 +105,7 @@ While you can write all code in a single file, standard best practices dictate s
 
 ---
 
-## 7. Variables
+## 8. Variables
 
 Variables allow you to keep `.tf` files dynamic and reusable.
 
@@ -123,7 +143,7 @@ terraform apply -var-file="prod.tfvars"
 
 ---
 
-## 8. Data Types
+## 9. Data Types
 
 | Type Classification | Type | Description | Example |
 | :--- | :--- | :--- | :--- |
@@ -136,54 +156,43 @@ terraform apply -var-file="prod.tfvars"
 
 ---
 
-## 9. The `count` Meta-Argument
+## 10. Complex Data Types (`object` and `set`)
 
-* **Purpose:** To deploy a pool of identical resources without writing duplicate resource blocks.
-* **Mechanism:** Accepts a whole number and creates that many instances.
+While primitive types (`string`, `number`, `bool`) are simple, advanced deployments require complex structural types.
 
+* **`set`:** A collection of unique, unordered values. Unlike a `list`, a `set` cannot contain duplicate items, and it does not use an index (`[0]`). You use the `toset()` function to convert a `list` to a `set` for `for_each` loops.
+* **`object`:** A structural type that allows you to group multiple distinct variable types under a single variable name. It acts like a strict schema.
 ```hcl
-resource "aws_instance" "my_ec2" {
-  ami           = "ami-09040d770ffe2224f"
-  instance_type = "t3.micro"
-  count         = 3
+variable "server_config" {
+  type = object({
+    name        = string
+    port        = number
+    is_internal = bool
+  })
 }
 ```
-
-### Limitations of `count`
-Instances created via count are exact identical copies. If you need distinct configurations (e.g., creating 3 IAM users with different names), `count` fails because AWS will not allow duplicate names. 
-
-### The `count.index` Object
-To inject flexibility, `count.index` holds the distinct iteration number (starting from 0).
-```hcl
-resource "aws_iam_user" "users" {
-  count = 3
-  name  = "developer-user-${count.index}" # Results in user-0, user-1, user-2
-}
-```
-
-## 10. Advanced Looping: `for_each` vs `count`
-
-While `count` is useful for identical resources, it introduces significant risks when infrastructure scales. The modern best practice for dynamic resource creation is `for_each`.
-
-### The "Blast Radius" Flaw of `count`
-* `count` tracks resources using strict **integer array indexes** (`[0]`, `[1]`, `[2]`).
-* If you delete an item from the middle of a list, the remaining items shift positions to fill the gap. 
-* Terraform will see this index shift and attempt to **destroy and recreate** unrelated infrastructure, causing unintentional outages (a massive blast radius).
-
-### The `for_each` Solution
-* `for_each` accepts a `map` or a `set` of strings, tracking resources by **explicit string keys** (e.g., `["analytics"]`, `["security"]`) instead of numerical indexes.
-* If an item is removed, Terraform safely targets only that specific key for destruction, leaving the rest of the infrastructure completely untouched.
-* **Extraction Objects:** Inside a `for_each` loop, you access the data using:
-  * `each.key`: The string identifier (the map key or set item).
-  * `each.value`: The nested data/object attached to that key.
-
-> **Note on Lists:** `for_each` cannot iterate directly over a standard `list(string)`. You must use the `toset()` function to convert the list into a set of unique keys: `for_each = toset(var.my_list)`
 
 ---
 
-## 11. Local Values (`locals`)
+## 11. Input Variable Validation
 
-A `locals` block assigns a name to an expression or value, allowing you to use it multiple times within a module without repeating it. 
+You can enforce strict rules on the data humans are allowed to pass into your variables. If the input fails the rule, Terraform rejects the plan before making any API calls.
+```hcl
+variable "image_id" {
+  type        = string
+
+  validation {
+    condition     = length(var.image_id) > 4 && substr(var.image_id, 0, 4) == "ami-"
+    error_message = "The image_id value must be a valid AMI ID, starting with \"ami-\"."
+  }
+}
+```
+
+---
+
+## 12. Local Values (`locals`)
+
+A `locals` block assigns a name to an expression or value, allowing you to use it multiple times within a module without repeating it.
 
 * Think of them as temporary variables isolated to your specific `.tf` file.
 * They are heavily used to transform, clean, or combine messy input variables before passing them to cloud provider resources.
@@ -194,7 +203,7 @@ locals {
   common_tags = {
     Owner = "DevOps Team"
   }
-  
+
   # Transforming an input variable using a 'for' expression
   clean_environments = {
     for k, v in var.network_environments : lower(k) => v
@@ -205,7 +214,7 @@ locals {
 
 ---
 
-## 12. Essential Terraform Functions
+## 13. Essential Terraform Functions
 
 Terraform includes built-in functions to transform and combine values. You cannot define custom functions; you must use what the language provides.
 
@@ -217,160 +226,12 @@ Terraform includes built-in functions to transform and combine values. You canno
 ### String Manipulation Functions (Used for input sanitization)
 * **`lower(string)`**: Converts all letters in a string to lowercase (critical for AWS naming constraints).
 * **`trimspace(string)`**: Removes any accidental spaces from the beginning and end of a string.
-* **`replace(string, search, replace)`**: Searches a string and replaces specific characters. 
+* **`replace(string, search, replace)`**: Searches a string and replaces specific characters.
   * *Example:* `replace("my-vpc", "-", "_")` returns `"my_vpc"`.
 
-
-
-## 13. Day 2 Operations & Troubleshooting
-
-### Forcing Resource Recreation
-Sometimes a resource becomes corrupted in the cloud (e.g., someone manually SSH'd in and broke a configuration), but your Terraform code hasn't changed. Because the desired state matches the code, `terraform plan` won't detect the issue.
-* **`terraform apply -replace="<resource_address>"`**: Forces Terraform to destroy and recreate a specific resource during the apply phase, ignoring the lack of code changes.
-* *Note:* This modern command officially replaces the deprecated `terraform taint` command.
-* *Example:* `terraform apply -replace="aws_instance.web_server[0]"`
-
-### Visualizing Dependencies (The DAG)
-Terraform determines the exact order to create, modify, or destroy resources by building a mathematical Directed Acyclic Graph (DAG) under the hood. 
-* **`terraform graph`**: Outputs this visual dependency graph in the raw DOT language format.
-* **Generating an Architecture Image:** You can pipe the raw DOT output into rendering tools like **Graphviz** to create a physical, visual map of your deployment dependencies.
-  * *Command:* `terraform graph | dot -Tsvg > graph.svg`
-  * *(Note: This requires the Graphviz `dot` CLI tool to be installed on your local OS).*
-
 ---
 
-## 14. Splat Expressions (`[*]`)
-
-A splat expression provides a concise, shorthand syntax to extract a specific attribute from an entire list of objects. It is heavily used in `outputs.tf` files to extract things like IP addresses from a cluster of servers.
-
-Instead of writing a full `for` loop to iterate over the list, the `[*]` operator grabs the data instantly.
-
-* **The Long Way (using a `for` loop):** `[for server in aws_instance.web : server.public_ip]`
-* **The Splat Way:** `aws_instance.web[*].public_ip`
-
-Both expressions return a clean list of public IPs: `["203.0.113.1", "203.0.113.2"]`.
-
-> **⚠️ Critical Splat Limitation:** > Splat expressions only work natively on **Lists** and **Tuples**. 
-> * If you built your servers using `count` (which outputs a list), `aws_instance.web[*].id` works perfectly.
-> * If you built your servers using `for_each` (which outputs a map), the splat will fail. You must convert the map values to a list first: `values(aws_instance.web)[*].id`.
-
-
-## 15. Terraform Logging & Debugging (`TF_LOG`)
-
-When Terraform fails and the standard console output doesn't give you enough information, you can enable detailed execution logging using environment variables.
-
-* **`TF_LOG`**: Controls the verbosity of the logs. 
-  * *Levels (from least to most verbose):* `ERROR`, `WARN`, `INFO`, `DEBUG`, `TRACE`.
-  * `TRACE` is the default debugging level and provides the most comprehensive data, including every API call made to AWS.
-* **`TF_LOG_PATH`**: By default, logs print to your terminal. You can use this variable to force Terraform to append the logs to a specific file instead.
-  * *Setup (Linux/macOS):* `export TF_LOG=TRACE` and `export TF_LOG_PATH=./terraform.log`
-
----
-
-## 16. Saving and Inspecting Execution Plans
-
-In a production CI/CD pipeline, you never run `terraform apply` blindly. You must guarantee that the plan evaluated in the CI stage is the *exact* plan executed in the deployment stage.
-
-* **`terraform plan -out=<filename>.plan`**: Saves the proposed execution plan to a secure, binary file.
-* **`terraform apply <filename>.plan`**: Executes the saved plan directly. *(Notice it does not require an approval prompt, because the plan is already locked).*
-
-### Reading the Binary Plan File
-Because the `.plan` file is binary, you cannot open it in a text editor.
-* **`terraform show <filename>.plan`**: Translates the binary plan into human-readable text in the terminal.
-* **`terraform show -json <filename>.plan`**: Outputs the plan in strict JSON format. 
-  * *Pro-Tip:* This is heavily used in automation. You can pipe this JSON into tools like `jq` to parse specific data, or send it to security scanners (like Checkov or OPA) to automatically reject the plan if it violates security policies.
-
----
-
-## 17. Querying Outputs
-
-* **`terraform output`**: Reads the `terraform.tfstate` file and prints the values of any defined `output` blocks. This is incredibly useful for querying infrastructure data (like a generated Database Endpoint or EC2 Public IP) without having to run a full `terraform plan` or API refresh.
-
----
-
-## 18. Terraform Settings Block (`terraform {}`)
-
-The `terraform` block does not configure infrastructure; it configures the behavior of Terraform itself. This is critical for team consistency.
-
-* **`required_version`**: Dictates the exact version of the Terraform CLI that is allowed to execute this code (e.g., `required_version = ">= 1.5.0"`).
-* **`required_providers`**: Dictates the specific cloud provider plugins and their versions. 
-```hcl
-terraform {
-  required_version = "~> 1.5.0"
-  required_providers {
-    aws = {
-      source  = "hashicorp/aws"
-      version = "~> 5.0"
-    }
-  }
-}
-```
-git commit -m "Fix: renamed folder and added lab_10"
----
-
-## 19. Resource Targeting (`-target`)
-
-* **`terraform plan -target=<resource_address>`**
-* **`terraform apply -target=<resource_address>`**
-
-**Why use this in production?**
-HashiCorp explicitly warns that targeting is an **anti-pattern** for routine operations because it breaks Terraform's holistic view of the infrastructure. However, in production operations, it is a necessary "break-glass" emergency tool used for:
-
-1. **Emergency Hotfixes:** If a security vulnerability requires an immediate port closure on a Security Group, you cannot wait 15 minutes for Terraform to evaluate 2,000 other resources. You target the exact SG, apply it in seconds, and fix the vulnerability.
-2. **Untangling Dependency Cycles:** Sometimes a complex deployment fails in a "catch-22" (Resource A needs B, but B failed because of A). Targeting allows you to force one resource to build first, breaking the cycle.
-3. **Isolating a Broken Resource:** If a minor DNS record is failing and blocking your entire CI/CD pipeline from deploying critical database updates, you can target the database to ensure the rollout continues while you fix the DNS bug.
-
----
-
-## 20. Performance Optimization: API Throttling
-
-When managing massive enterprise infrastructure, a standard `terraform plan` must query the cloud provider for the real-time status of every single resource in your state file. This can trigger **Slow API Call Throttling** (e.g., AWS temporarily blocking Terraform for making too many requests per second).
-
-**Best Practices to Resolve Throttling:**
-1. **State Decomposition (The Permanent Fix):** Never put an entire company's infrastructure in one `main.tf` file. Break the monolith into smaller, isolated projects/workspaces (e.g., `vpc-network`, `database-tier`, `frontend-apps`).
-2. **Resource Targeting:** Use `-target` as a temporary band-aid to bypass the need to refresh the entire architecture.
-3. **Skip the Refresh:** Run `terraform plan -refresh=false`. This tells Terraform to trust the local `terraform.tfstate` file completely and skip calling the AWS API. 
-   * *Warning:* This is incredibly fast, but highly dangerous if someone manually changed infrastructure in the AWS Console, as Terraform will be blind to that "configuration drift" during the plan phase.
-
-## 21. The `zipmap` Function
-
-The `zipmap` function takes two separate lists (one for keys, one for values) and "zips" them together into a single, cohesive `map`. 
-* **Syntax:** `zipmap(list_of_keys, list_of_values)`
-* **Requirement:** Both lists must have the exact same number of elements.
-
-### The Real-World IAM Use Case
-Imagine you use a `count` loop to create a batch of IAM users. Terraform outputs those users as a list of objects. If a downstream module or CI/CD script needs to look up a specific user's ARN by their name, a list is useless—you need a dictionary (a map). 
-
-By combining **Splat Expressions** `[*]` with `zipmap`, you can instantly generate a highly queryable map of Names to ARNs.
-
-```hcl
-resource "aws_iam_user" "team" {
-  count = 3
-  name  = "developer-${count.index}"
-}
-
-# The zipmap Output
-output "iam_user_arns" {
-  description = "A map of IAM Usernames to their generated ARNs"
-  
-  # List 1 (Keys): ["developer-0", "developer-1", "developer-2"]
-  # List 2 (Values): ["arn:aws:iam::123:user/developer-0", ...]
-  
-  value = zipmap(aws_iam_user.team[*].name, aws_iam_user.team[*].arn)
-}
-```
-**The resulting output in the terminal will look cleanly mapped like this:**
-```json
-{
-  "developer-0" = "arn:aws:iam::123456789:user/developer-0"
-  "developer-1" = "arn:aws:iam::123456789:user/developer-1"
-  "developer-2" = "arn:aws:iam::123456789:user/developer-2"
-}
-```
-
----
-
-## 22. Commenting in Terraform Code
+## 14. Commenting in Terraform Code
 
 Clear documentation inside your `.tf` files is critical for Day 2 operations and team collaboration. Terraform supports three different syntax styles for comments:
 
@@ -389,13 +250,132 @@ Clear documentation inside your `.tf` files is critical for Day 2 operations and
    ```hcl
    /* This module deploys the core networking infrastructure.
    It creates the VPC, public subnets, and internet gateways.
-   DO NOT modify the CIDR blocks without team approval. 
+   DO NOT modify the CIDR blocks without team approval.
    */
    ```
 
-## 23. The `lifecycle` Meta-Argument
+---
 
-By default, Terraform expects to have absolute, strict control over a resource. If a change requires a resource to be replaced, Terraform will destroy the old resource *first*, and then create the new one. 
+## 15. The `count` Meta-Argument
+
+* **Purpose:** To deploy a pool of identical resources without writing duplicate resource blocks.
+* **Mechanism:** Accepts a whole number and creates that many instances.
+
+```hcl
+resource "aws_instance" "my_ec2" {
+  ami           = "ami-09040d770ffe2224f"
+  instance_type = "t3.micro"
+  count         = 3
+}
+```
+
+### Limitations of `count`
+Instances created via count are exact identical copies. If you need distinct configurations (e.g., creating 3 IAM users with different names), `count` fails because AWS will not allow duplicate names.
+
+### The `count.index` Object
+To inject flexibility, `count.index` holds the distinct iteration number (starting from 0).
+```hcl
+resource "aws_iam_user" "users" {
+  count = 3
+  name  = "developer-user-${count.index}" # Results in user-0, user-1, user-2
+}
+```
+
+---
+
+## 16. Advanced Looping: `for_each` vs `count`
+
+While `count` is useful for identical resources, it introduces significant risks when infrastructure scales. The modern best practice for dynamic resource creation is `for_each`.
+
+### The "Blast Radius" Flaw of `count`
+* `count` tracks resources using strict **integer array indexes** (`[0]`, `[1]`, `[2]`).
+* If you delete an item from the middle of a list, the remaining items shift positions to fill the gap.
+* Terraform will see this index shift and attempt to **destroy and recreate** unrelated infrastructure, causing unintentional outages (a massive blast radius).
+
+### The `for_each` Solution
+* `for_each` accepts a `map` or a `set` of strings, tracking resources by **explicit string keys** (e.g., `["analytics"]`, `["security"]`) instead of numerical indexes.
+* If an item is removed, Terraform safely targets only that specific key for destruction, leaving the rest of the infrastructure completely untouched.
+* **Extraction Objects:** Inside a `for_each` loop, you access the data using:
+  * `each.key`: The string identifier (the map key or set item).
+  * `each.value`: The nested data/object attached to that key.
+
+> **Note on Lists:** `for_each` cannot iterate directly over a standard `list(string)`. You must use the `toset()` function to convert the list into a set of unique keys: `for_each = toset(var.my_list)`
+
+---
+
+## 17. Splat Expressions (`[*]`)
+
+A splat expression provides a concise, shorthand syntax to extract a specific attribute from an entire list of objects. It is heavily used in `outputs.tf` files to extract things like IP addresses from a cluster of servers.
+
+Instead of writing a full `for` loop to iterate over the list, the `[*]` operator grabs the data instantly.
+
+* **The Long Way (using a `for` loop):** `[for server in aws_instance.web : server.public_ip]`
+* **The Splat Way:** `aws_instance.web[*].public_ip`
+
+Both expressions return a clean list of public IPs: `["203.0.113.1", "203.0.113.2"]`.
+
+> **⚠️ Critical Splat Limitation:** Splat expressions only work natively on **Lists** and **Tuples**.
+> * If you built your servers using `count` (which outputs a list), `aws_instance.web[*].id` works perfectly.
+> * If you built your servers using `for_each` (which outputs a map), the splat will fail. You must convert the map values to a list first: `values(aws_instance.web)[*].id`.
+
+---
+
+## 18. The `zipmap` Function
+
+The `zipmap` function takes two separate lists (one for keys, one for values) and "zips" them together into a single, cohesive `map`.
+* **Syntax:** `zipmap(list_of_keys, list_of_values)`
+* **Requirement:** Both lists must have the exact same number of elements.
+
+### The Real-World IAM Use Case
+Imagine you use a `count` loop to create a batch of IAM users. Terraform outputs those users as a list of objects. If a downstream module or CI/CD script needs to look up a specific user's ARN by their name, a list is useless—you need a dictionary (a map).
+
+By combining **Splat Expressions** `[*]` with `zipmap`, you can instantly generate a highly queryable map of Names to ARNs.
+
+```hcl
+resource "aws_iam_user" "team" {
+  count = 3
+  name  = "developer-${count.index}"
+}
+
+# The zipmap Output
+output "iam_user_arns" {
+  description = "A map of IAM Usernames to their generated ARNs"
+
+  # List 1 (Keys): ["developer-0", "developer-1", "developer-2"]
+  # List 2 (Values): ["arn:aws:iam::123:user/developer-0", ...]
+
+  value = zipmap(aws_iam_user.team[*].name, aws_iam_user.team[*].arn)
+}
+```
+**The resulting output in the terminal will look cleanly mapped like this:**
+```json
+{
+  "developer-0" = "arn:aws:iam::123456789:user/developer-0"
+  "developer-1" = "arn:aws:iam::123456789:user/developer-1"
+  "developer-2" = "arn:aws:iam::123456789:user/developer-2"
+}
+```
+
+---
+
+## 19. Resource Dependencies
+
+Terraform builds a dependency graph (DAG) to determine the exact order in which to create or destroy resources.
+
+* **Implicit Dependency (The Standard):** Terraform automatically infers dependencies when one resource references the attribute of another. You should rely on this 95% of the time.
+* **Explicit Dependency (`depends_on`):** Used when a resource relies on another resource functioning, but does *not* reference its data directly in the code (e.g., an EC2 instance needing an IAM Role Policy attached before it runs a script).
+```hcl
+resource "aws_instance" "app_server" {
+  # Explicitly force Terraform to wait for the policy attachment
+  depends_on = [aws_iam_role_policy_attachment.s3_access]
+}
+```
+
+---
+
+## 20. The `lifecycle` Meta-Argument
+
+By default, Terraform expects to have absolute, strict control over a resource. If a change requires a resource to be replaced, Terraform will destroy the old resource *first*, and then create the new one.
 
 The `lifecycle` nested block allows you to override these default operational behaviors to protect critical infrastructure, ensure zero downtime, or ignore external modifications.
 
@@ -423,7 +403,7 @@ resource "aws_instance" "web" {
 resource "aws_autoscaling_group" "app_asg" {
   lifecycle {
     ignore_changes = [tags, desired_capacity]
-    # ignore_changes = all 
+    # ignore_changes = all
   }
 }
 ```
@@ -434,7 +414,7 @@ resource "aws_autoscaling_group" "app_asg" {
 
 ---
 
-## 24. Custom Conditions (`precondition` & `postcondition`)
+## 21. Custom Conditions (`precondition` & `postcondition`)
 
 Also located strictly inside the `lifecycle` block, these allow you to validate assumptions about your resources and data sources.
 
@@ -456,80 +436,18 @@ resource "aws_instance" "secure_server" {
 
 ---
 
-## 25. Resource Dependencies
+## 22. Continuous Validation (`check` blocks)
 
-Terraform builds a dependency graph (DAG) to determine the exact order in which to create or destroy resources.
+Introduced in Terraform 1.5, `check` blocks perform validation *outside* the normal resource lifecycle.
 
-* **Implicit Dependency (The Standard):** Terraform automatically infers dependencies when one resource references the attribute of another. You should rely on this 95% of the time.
-* **Explicit Dependency (`depends_on`):** Used when a resource relies on another resource functioning, but does *not* reference its data directly in the code (e.g., an EC2 instance needing an IAM Role Policy attached before it runs a script).
-```hcl
-resource "aws_instance" "app_server" {
-  # Explicitly force Terraform to wait for the policy attachment
-  depends_on = [aws_iam_role_policy_attachment.s3_access]
-}
-```
-
----
-
-## 26. Complex Data Types (`object` and `set`)
-
-While primitive types (`string`, `number`, `bool`) are simple, advanced deployments require complex structural types.
-
-* **`set`:** A collection of unique, unordered values. Unlike a `list`, a `set` cannot contain duplicate items, and it does not use an index (`[0]`). You use the `toset()` function to convert a `list` to a `set` for `for_each` loops.
-* **`object`:** A structural type that allows you to group multiple distinct variable types under a single variable name. It acts like a strict schema.
-```hcl
-variable "server_config" {
-  type = object({
-    name        = string
-    port        = number
-    is_internal = bool
-  })
-}
-```
-
----
-
-## 27. Input Variable Validation
-
-You can enforce strict rules on the data humans are allowed to pass into your variables. If the input fails the rule, Terraform rejects the plan before making any API calls.
-```hcl
-variable "image_id" {
-  type        = string
-
-  validation {
-    condition     = length(var.image_id) > 4 && substr(var.image_id, 0, 4) == "ami-"
-    error_message = "The image_id value must be a valid AMI ID, starting with \"ami-\"."
-  }
-}
-```
-
----
-
-## 28. Continuous Validation (`check` blocks)
-
-Introduced in Terraform 1.5, `check` blocks perform validation *outside* the normal resource lifecycle. 
-
-* **Behavior:** A `check` block runs during every `terraform plan` or `terraform apply`. If the check fails, it outputs a **warning**, but it does *not* block or break the deployment. 
+* **Behavior:** A `check` block runs during every `terraform plan` or `terraform apply`. If the check fails, it outputs a **warning**, but it does *not* block or break the deployment.
 * **Use Case:** Monitoring the health of infrastructure (e.g., checking if an API endpoint is returning a 200 HTTP status code).
 
 ---
 
-## 29. State Refactoring (`moved` blocks)
+## 23. Provisioners (The "Last Resort")
 
-If you rename a resource in your `.tf` file (e.g., changing `aws_instance.web` to `aws_instance.frontend`), Terraform will think you deleted the old one and want to create a brand new one, causing accidental deletions.
-
-* **The Fix:** The `moved` block safely tells the state file that the resource simply changed addresses, preventing destruction.
-* **Workflow:** Write the `moved` block ➔ run `terraform apply` ➔ safely delete the `moved` block from the code later.
-```hcl
-moved {
-  from = aws_instance.web
-  to   = aws_instance.frontend
-}
-```
----
-## 30. Provisioners (The "Last Resort")
-
-Terraform is a **declarative** tool (you describe the end state, and Terraform figures out how to build it). Provisioners break this rule by being **imperative** (executing a step-by-step script). 
+Terraform is a **declarative** tool (you describe the end state, and Terraform figures out how to build it). Provisioners break this rule by being **imperative** (executing a step-by-step script).
 
 Because provisioners execute scripts outside of Terraform's control, Terraform cannot track the changes they make in the `.tfstate` file. For this reason, HashiCorp officially considers provisioners a **Last Resort**. You should only use them when standard configuration management tools (like Ansible, Chef, or standard AWS `user_data`) cannot solve the problem.
 
@@ -599,7 +517,7 @@ resource "aws_instance" "web" {
   provisioner "remote-exec" {
     # If this script fails, print a warning but DO NOT taint the EC2 instance
     on_failure = continue
-    
+
     inline = [
       "sudo apt-get install -y imaginary-software-that-does-not-exist"
     ]
@@ -607,16 +525,94 @@ resource "aws_instance" "web" {
 }
 ```
 
-## 31. Terraform Modules
+---
+
+## 24. Saving and Inspecting Execution Plans
+
+In a production CI/CD pipeline, you never run `terraform apply` blindly. You must guarantee that the plan evaluated in the CI stage is the *exact* plan executed in the deployment stage.
+
+* **`terraform plan -out=<filename>.plan`**: Saves the proposed execution plan to a secure, binary file.
+* **`terraform apply <filename>.plan`**: Executes the saved plan directly. *(Notice it does not require an approval prompt, because the plan is already locked).*
+
+### Reading the Binary Plan File
+Because the `.plan` file is binary, you cannot open it in a text editor.
+* **`terraform show <filename>.plan`**: Translates the binary plan into human-readable text in the terminal.
+* **`terraform show -json <filename>.plan`**: Outputs the plan in strict JSON format.
+  * *Pro-Tip:* This is heavily used in automation. You can pipe this JSON into tools like `jq` to parse specific data, or send it to security scanners (like Checkov or OPA) to automatically reject the plan if it violates security policies.
+
+---
+
+## 25. Querying Outputs
+
+* **`terraform output`**: Reads the `terraform.tfstate` file and prints the values of any defined `output` blocks. This is incredibly useful for querying infrastructure data (like a generated Database Endpoint or EC2 Public IP) without having to run a full `terraform plan` or API refresh.
+
+---
+
+## 26. Resource Targeting (`-target`)
+
+* **`terraform plan -target=<resource_address>`**
+* **`terraform apply -target=<resource_address>`**
+
+**Why use this in production?**
+HashiCorp explicitly warns that targeting is an **anti-pattern** for routine operations because it breaks Terraform's holistic view of the infrastructure. However, in production operations, it is a necessary "break-glass" emergency tool used for:
+
+1. **Emergency Hotfixes:** If a security vulnerability requires an immediate port closure on a Security Group, you cannot wait 15 minutes for Terraform to evaluate 2,000 other resources. You target the exact SG, apply it in seconds, and fix the vulnerability.
+2. **Untangling Dependency Cycles:** Sometimes a complex deployment fails in a "catch-22" (Resource A needs B, but B failed because of A). Targeting allows you to force one resource to build first, breaking the cycle.
+3. **Isolating a Broken Resource:** If a minor DNS record is failing and blocking your entire CI/CD pipeline from deploying critical database updates, you can target the database to ensure the rollout continues while you fix the DNS bug.
+
+---
+
+## 27. Day 2 Operations & Troubleshooting
+
+### Forcing Resource Recreation
+Sometimes a resource becomes corrupted in the cloud (e.g., someone manually SSH'd in and broke a configuration), but your Terraform code hasn't changed. Because the desired state matches the code, `terraform plan` won't detect the issue.
+* **`terraform apply -replace="<resource_address>"`**: Forces Terraform to destroy and recreate a specific resource during the apply phase, ignoring the lack of code changes.
+* *Note:* This modern command officially replaces the deprecated `terraform taint` command.
+* *Example:* `terraform apply -replace="aws_instance.web_server[0]"`
+
+### Visualizing Dependencies (The DAG)
+Terraform determines the exact order to create, modify, or destroy resources by building a mathematical Directed Acyclic Graph (DAG) under the hood.
+* **`terraform graph`**: Outputs this visual dependency graph in the raw DOT language format.
+* **Generating an Architecture Image:** You can pipe the raw DOT output into rendering tools like **Graphviz** to create a physical, visual map of your deployment dependencies.
+  * *Command:* `terraform graph | dot -Tsvg > graph.svg`
+  * *(Note: This requires the Graphviz `dot` CLI tool to be installed on your local OS).*
+
+---
+
+## 28. Terraform Logging & Debugging (`TF_LOG`)
+
+When Terraform fails and the standard console output doesn't give you enough information, you can enable detailed execution logging using environment variables.
+
+* **`TF_LOG`**: Controls the verbosity of the logs.
+  * *Levels (from least to most verbose):* `ERROR`, `WARN`, `INFO`, `DEBUG`, `TRACE`.
+  * `TRACE` is the default debugging level and provides the most comprehensive data, including every API call made to AWS.
+* **`TF_LOG_PATH`**: By default, logs print to your terminal. You can use this variable to force Terraform to append the logs to a specific file instead.
+  * *Setup (Linux/macOS):* `export TF_LOG=TRACE` and `export TF_LOG_PATH=./terraform.log`
+
+---
+
+## 29. Performance Optimization: API Throttling
+
+When managing massive enterprise infrastructure, a standard `terraform plan` must query the cloud provider for the real-time status of every single resource in your state file. This can trigger **Slow API Call Throttling** (e.g., AWS temporarily blocking Terraform for making too many requests per second).
+
+**Best Practices to Resolve Throttling:**
+1. **State Decomposition (The Permanent Fix):** Never put an entire company's infrastructure in one `main.tf` file. Break the monolith into smaller, isolated projects/workspaces (e.g., `vpc-network`, `database-tier`, `frontend-apps`).
+2. **Resource Targeting:** Use `-target` as a temporary band-aid to bypass the need to refresh the entire architecture.
+3. **Skip the Refresh:** Run `terraform plan -refresh=false`. This tells Terraform to trust the local `terraform.tfstate` file completely and skip calling the AWS API.
+   * *Warning:* This is incredibly fast, but highly dangerous if someone manually changed infrastructure in the AWS Console, as Terraform will be blind to that "configuration drift" during the plan phase.
+
+---
+
+## 30. Terraform Modules
 
 According to the official HashiCorp documentation, **a module is a container for multiple resources that are used together.** Modules are the primary way to package and reuse resource configurations with Terraform.
 
-Every Terraform configuration has at least one module, known as its **Root Module**, which consists of the resources defined in the `.tf` files in the main working directory. 
+Every Terraform configuration has at least one module, known as its **Root Module**, which consists of the resources defined in the `.tf` files in the main working directory.
 
 A module can call other modules, which lets you include their resources into the configuration in a concise, declarative way. Modules that are called by another configuration are referred to as **Child Modules**.
 
 ### The Module Data Flow Diagram
-When using modules, you must understand how data enters and exits the isolated module block. 
+When using modules, you must understand how data enters and exits the isolated module block.
 
 * **Variables** act as the **Inputs**, flowing from the Root Module *into* the Child Module.
 * **Outputs** act as the **Returns**, flowing from the Child Module back *out* to the Root Module.
@@ -651,7 +647,7 @@ variable "vpc_cidr" {
 ```hcl
 module "custom_vpc" {
   source   = "./modules/vpc"
-  
+
   # Passing the value into the child module's variable
   vpc_cidr = "10.0.0.0/16"
 }
@@ -682,7 +678,7 @@ resource "aws_route53_record" "www" {
   name    = "www.myapp.com"
   type    = "A"
   ttl     = 300
-  
+
   # Calling the element from the module!
   records = [module.frontend.server_public_ip]
 }
@@ -718,7 +714,210 @@ If you want to share your custom module publicly, HashiCorp enforces strict rule
 
 ---
 
-## 32. Terraform Workspaces (Environment Management)
+## 31. Git for Team Collaboration with Terraform
+
+Git allows multiple engineers to collaborate on the same Terraform codebase safely.
+
+### What Should Be Committed
+Commit the Terraform configuration files that describe the desired infrastructure:
+* `main.tf`
+* `variables.tf`
+* `outputs.tf`
+* `providers.tf`
+* `modules/`
+* `.terraform.lock.hcl`
+* Example variable files such as `dev.tfvars.example`
+
+### What Should Not Be Committed
+Do **not** commit files that contain local machine data, downloaded providers, secrets, or Terraform state:
+* `.terraform/`
+* `terraform.tfstate`
+* `terraform.tfstate.backup`
+* `*.tfvars` files if they contain secrets
+* Crash logs and local override files
+
+### Basic Team Workflow
+```bash
+git checkout -b feature/add-network
+terraform fmt
+terraform validate
+terraform plan
+git add .
+git commit -m "Add network module"
+git push origin feature/add-network
+```
+
+The team can then review the pull request before the Terraform change is applied.
+
+---
+
+## 32. Terraform and `.gitignore`
+
+A `.gitignore` file prevents Git from tracking local Terraform files that should stay out of the repository.
+
+### Common Terraform `.gitignore`
+```gitignore
+# Local Terraform provider/plugins directory
+.terraform/
+
+# Terraform state files
+*.tfstate
+*.tfstate.*
+
+# Crash logs
+crash.log
+crash.*.log
+
+# Sensitive variable files
+*.tfvars
+*.tfvars.json
+
+# Local override files
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
+# CLI config files
+.terraformrc
+terraform.rc
+```
+
+> **Important:** If your team uses non-sensitive shared variable files, commit an example file such as `dev.tfvars.example`, not the real secret file.
+
+---
+
+## 33. Security Risk of Storing Terraform State in Git
+
+The Terraform state file is sensitive and should not be stored in Git.
+
+### Why State Is Sensitive
+`terraform.tfstate` may contain:
+* Resource IDs
+* IP addresses
+* Database endpoints
+* IAM role details
+* Secret values generated or returned by providers
+* Plaintext values from some sensitive resource attributes
+
+Even if your `.tf` files do not show a password directly, Terraform state may still contain the real value after creation.
+
+> **Golden Rule:** Terraform code can go in Git. Terraform state should go in a secure remote backend.
+
+---
+
+## 34. Terraform Backend
+
+A **backend** defines where Terraform stores its state and how Terraform performs state operations.
+
+By default, Terraform uses the **local backend**, which stores state in a local file:
+```text
+terraform.tfstate
+```
+
+For real team projects, a remote backend is preferred.
+
+### Why Use a Remote Backend?
+* Keeps state out of Git
+* Allows team members to share the same state
+* Enables state locking, depending on backend
+* Improves security when combined with encryption and access control
+* Allows CI/CD systems to run Terraform against the same source of truth
+
+### Backend Configuration Example
+```hcl
+terraform {
+  backend "s3" {
+    bucket = "my-terraform-state-bucket"
+    key    = "network/dev/terraform.tfstate"
+    region = "us-east-1"
+  }
+}
+```
+
+After adding or changing backend configuration, run:
+```bash
+terraform init
+```
+
+Terraform will initialize the backend and may ask whether you want to migrate existing local state to the new backend.
+
+---
+
+## 35. S3 Backend
+
+The S3 backend stores Terraform state in an AWS S3 bucket.
+
+### Benefits
+* Centralized state storage
+* State can be encrypted with S3 encryption
+* Access can be controlled with IAM policies
+* Versioning can recover older state versions
+* Useful for team collaboration and CI/CD
+
+### Recommended S3 Bucket Settings
+* Enable bucket versioning
+* Enable encryption
+* Block public access
+* Restrict access with IAM
+* Use a separate bucket for Terraform state
+
+### Small S3 Backend Example
+```hcl
+terraform {
+  required_version = ">= 1.5.0"
+
+  backend "s3" {
+    bucket  = "company-terraform-state-dev"
+    key     = "checkpoint-2/network/terraform.tfstate"
+    region  = "us-east-1"
+    encrypt = true
+  }
+}
+```
+
+The `key` is the path inside the bucket where the state file will be stored.
+
+```text
+s3://company-terraform-state-dev/checkpoint-2/network/terraform.tfstate
+```
+
+### Backend Bootstrap Note
+The S3 bucket used for Terraform state usually must exist before Terraform can use it as a backend. Many teams create the backend bucket manually once, or create it in a separate bootstrap Terraform project.
+
+---
+
+## 36. State Locking
+
+State locking prevents two people or systems from modifying the same Terraform state at the same time.
+
+### Why Locking Matters
+Imagine two engineers both run `terraform apply` against the same infrastructure:
+* Engineer A creates a subnet.
+* Engineer B modifies the VPC at the same time.
+* Both commands try to update the same state file.
+
+Without locking, the state file could become inconsistent or corrupted.
+
+### What Happens During a Lock?
+When Terraform starts an operation that may modify state, it tries to acquire a lock:
+```text
+Acquiring state lock. This may take a few moments...
+```
+
+When the operation finishes, Terraform releases the lock.
+
+### Force Unlock
+If a Terraform run crashes and leaves a stale lock, you can manually unlock it:
+```bash
+terraform force-unlock <LOCK_ID>
+```
+
+> **Warning:** Only force-unlock when you are sure no other Terraform operation is still running.
+
+---
+
+## 37. Terraform Workspaces (Environment Management)
 
 While modules help you separate and reuse your *code*, **Workspaces help you separate your *state* (`terraform.tfstate`)**.
 
@@ -749,6 +948,237 @@ resource "aws_instance" "server" {
 
 ### Official Workspace Limitations
 HashiCorp recommends using Workspaces to test identical architectures in parallel development environments. However, for environments with strict security or compliance requirements (where Production must be completely isolated from Development), **HashiCorp strongly recommends using separate physical directories and code repositories** rather than relying solely on workspaces.
+
+---
+
+## 38. Terraform State Management Commands
+
+Terraform state commands let you inspect or modify Terraform's state file.
+
+> **Important:** These commands modify Terraform's memory of infrastructure. They do not always modify the real cloud resource.
+
+### `terraform state list`
+Shows all resources currently tracked in state.
+
+```bash
+terraform state list
+```
+
+Example output:
+```text
+aws_vpc.main
+aws_subnet.public["us-east-1a"]
+aws_instance.web
+```
+
+### `terraform state show`
+Shows details for one resource in state.
+
+```bash
+terraform state show aws_instance.web
+```
+
+Useful when you want to inspect the ID, tags, AMI, subnet, or other stored attributes.
+
+### `terraform state rm`
+Removes a resource from Terraform state without destroying the real cloud resource.
+
+```bash
+terraform state rm aws_instance.web
+```
+
+Real-world example:
+* You created an EC2 instance with Terraform.
+* Later, another team needs to manage it manually or with a different Terraform project.
+* You run `terraform state rm aws_instance.web`.
+* Terraform forgets the instance, but the EC2 instance still exists in AWS.
+
+> **Warning:** After `state rm`, Terraform no longer manages that resource. If the resource block still exists in code, Terraform may plan to create a new one.
+
+### `terraform state mv`
+Moves a resource address inside the state file.
+
+```bash
+terraform state mv aws_instance.old_name aws_instance.new_name
+```
+
+Real-world example:
+* You rename a resource block from `aws_instance.old_name` to `aws_instance.new_name`.
+* Without moving state, Terraform may think the old resource must be destroyed and a new one created.
+* `state mv` tells Terraform this is the same real resource with a new Terraform address.
+
+---
+
+## 39. State Refactoring (`moved` blocks)
+
+If you rename a resource in your `.tf` file (e.g., changing `aws_instance.web` to `aws_instance.frontend`), Terraform will think you deleted the old one and want to create a brand new one, causing accidental deletions.
+
+* **The Fix:** The `moved` block safely tells the state file that the resource simply changed addresses, preventing destruction.
+* **Workflow:** Write the `moved` block ➔ run `terraform apply` ➔ safely delete the `moved` block from the code later.
+```hcl
+moved {
+  from = aws_instance.web
+  to   = aws_instance.frontend
+}
+```
+
+---
+
+## 40. Terraform Import
+
+`terraform import` brings an existing real-world resource under Terraform management.
+
+Use import when:
+* A resource was created manually in the cloud console
+* A resource was created by another tool
+* You want Terraform to start managing an existing resource instead of creating a new one
+
+### Import Workflow
+1. Write a matching resource block in Terraform code.
+2. Run `terraform import`.
+3. Run `terraform plan`.
+4. Adjust the code until Terraform shows no unexpected changes.
+
+### Small Terraform Import Example
+Suppose an S3 bucket already exists in AWS:
+```text
+my-existing-company-bucket
+```
+
+First, write the Terraform resource block:
+```hcl
+resource "aws_s3_bucket" "logs" {
+  bucket = "my-existing-company-bucket"
+}
+```
+
+Then import the real bucket into Terraform state:
+```bash
+terraform import aws_s3_bucket.logs my-existing-company-bucket
+```
+
+Now check the plan:
+```bash
+terraform plan
+```
+
+If Terraform wants to change many things, update the `.tf` code until it matches the real bucket configuration.
+
+### Import Block Example
+Modern Terraform also supports import blocks, which let you declare imports in code:
+```hcl
+import {
+  to = aws_s3_bucket.logs
+  id = "my-existing-company-bucket"
+}
+
+resource "aws_s3_bucket" "logs" {
+  bucket = "my-existing-company-bucket"
+}
+```
+
+Then run:
+```bash
+terraform plan
+terraform apply
+```
+
+---
+
+## 41. Removed Block
+
+A `removed` block tells Terraform that a resource should be removed from state without destroying the real infrastructure.
+
+This is a safer, code-reviewed alternative to running:
+```bash
+terraform state rm <resource_address>
+```
+
+### Example
+Suppose Terraform currently manages this resource:
+```hcl
+resource "aws_s3_bucket" "old_logs" {
+  bucket = "company-old-logs"
+}
+```
+
+You want Terraform to stop managing the bucket, but you do **not** want to delete the real bucket in AWS.
+
+Remove the resource block from your code and add:
+```hcl
+removed {
+  from = aws_s3_bucket.old_logs
+
+  lifecycle {
+    destroy = false
+  }
+}
+```
+
+Then run:
+```bash
+terraform plan
+terraform apply
+```
+
+Terraform removes `aws_s3_bucket.old_logs` from state, but leaves the real S3 bucket running in AWS.
+
+### `removed` Block vs `terraform state rm`
+| Method | Stored in Code? | Reviewable in Git? | Destroys Real Resource? |
+| :--- | :---: | :---: | :---: |
+| `terraform state rm` | No | No | No |
+| `removed` block with `destroy = false` | Yes | Yes | No |
+
+> **Best Practice:** Use a `removed` block when the change should be visible in code review and repeatable across team environments.
+
+---
+
+## 42. Cross-Project Collaboration Using Remote State Data Source
+
+Sometimes one Terraform project needs values created by another Terraform project.
+
+Example:
+* Project A creates the network: VPC, subnets, route tables.
+* Project B creates the application servers.
+* Project B needs the VPC ID and subnet IDs from Project A.
+
+Terraform can read outputs from another project's remote state using the `terraform_remote_state` data source.
+
+### Network Project Output
+```hcl
+output "vpc_id" {
+  value = aws_vpc.main.id
+}
+
+output "public_subnet_ids" {
+  value = [for subnet in aws_subnet.public : subnet.id]
+}
+```
+
+### Application Project Reads Network State
+```hcl
+data "terraform_remote_state" "network" {
+  backend = "s3"
+
+  config = {
+    bucket = "company-terraform-state-dev"
+    key    = "network/dev/terraform.tfstate"
+    region = "us-east-1"
+  }
+}
+
+resource "aws_instance" "app" {
+  ami           = "ami-12345678"
+  instance_type = "t3.micro"
+  subnet_id     = data.terraform_remote_state.network.outputs.public_subnet_ids[0]
+
+  tags = {
+    Name = "app-server"
+  }
+}
+```
+
+> **Important:** Remote state sharing exposes all root module outputs from the other project. Only output values that other projects really need.
 
 ---
 
