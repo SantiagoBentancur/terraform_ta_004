@@ -133,6 +133,8 @@ Requirements include:
 * Return HTTP `200 OK` from the `/health` endpoint.
 * Configure the ALB Target Group to use `/health` for health checks.
 
+> **Scope Note:** This checkpoint uses an HTTP listener on port `80` only. HTTPS on port `443` is skipped for simplicity because it requires an ACM certificate and domain validation.
+
 ### Environment Parity
 
 Development and Production environments must maintain consistent architecture while differing in scale and resiliency requirements.

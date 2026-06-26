@@ -68,4 +68,30 @@ resource "aws_vpc_security_group_egress_rule" "allow_app_all_traffic_ipv4" {
 
 
 # DB SECURITY GROUP
-# TODO: Create sg_db and allow PostgreSQL traffic only from sg_app.
+resource "aws_security_group" "db" {
+  name        = "${var.env}-db-sg"
+  description = "Security group for DBs"
+  vpc_id      = var.vpc_id
+
+  tags = {
+    Name        = "${var.env}-db-sg"
+    Environment = var.env
+    Project     = var.project
+    ManagedBy   = "Terraform"
+  }
+}
+
+
+resource "aws_vpc_security_group_ingress_rule" "allow_db_from_app" {
+  security_group_id            = aws_security_group.db.id
+  referenced_security_group_id = aws_security_group.app.id
+  from_port                    = 5432
+  ip_protocol                  = "tcp"
+  to_port                      = 5432
+}
+
+resource "aws_vpc_security_group_egress_rule" "allow_db_all_traffic_ipv4" {
+  security_group_id = aws_security_group.db.id
+  referenced_security_group_id = aws_security_group.app.id
+  ip_protocol       = "-1"
+}

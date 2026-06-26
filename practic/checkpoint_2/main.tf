@@ -31,3 +31,12 @@ module "security" {
   vpc_cidr_block = module.network.vpc_cidr_block
   
 }
+
+module "alb_tier" {
+  source  = "./modules/alb_tier"
+  env     = "DEV"
+  project = "checkpoint-2"
+  security_groups_ids = [module.security.sg_alb_id]
+  subnet_ids = module.network.subnet_ids
+  vpc_id  = module.network.vpc_id
+}
