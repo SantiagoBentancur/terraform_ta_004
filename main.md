@@ -303,7 +303,43 @@ While `count` is useful for identical resources, it introduces significant risks
 
 ---
 
-## 17. Splat Expressions (`[*]`)
+## 17. Dynamic Blocks
+
+A `dynamic` block lets you generate repeated nested blocks inside a resource. This is useful when the resource needs multiple child blocks, such as several `ingress` rules inside an AWS Security Group.
+
+* **Use Case:** Avoid copy-pasting repeated nested blocks when the data can come from a variable or local value.
+* **Mechanism:** The `dynamic "<BLOCK_NAME>"` block loops over a collection using `for_each`.
+* **Template:** The `content` block defines what each generated nested block should look like.
+
+```hcl
+variable "web_ingress_rules" {
+  type = map(object({
+    port = number
+    cidr = string
+  }))
+}
+
+resource "aws_security_group" "web" {
+  name = "dynamic-web-sg"
+
+  dynamic "ingress" {
+    for_each = var.web_ingress_rules
+
+    content {
+      from_port   = ingress.value.port
+      to_port     = ingress.value.port
+      protocol    = "tcp"
+      cidr_blocks = [ingress.value.cidr]
+    }
+  }
+}
+```
+
+> **Key Idea:** `for_each` creates multiple resource instances; `dynamic` creates multiple nested blocks inside one resource.
+
+---
+
+## 18. Splat Expressions (`[*]`)
 
 A splat expression provides a concise, shorthand syntax to extract a specific attribute from an entire list of objects. It is heavily used in `outputs.tf` files to extract things like IP addresses from a cluster of servers.
 
@@ -320,7 +356,7 @@ Both expressions return a clean list of public IPs: `["203.0.113.1", "203.0.113.
 
 ---
 
-## 18. The `zipmap` Function
+## 19. The `zipmap` Function
 
 The `zipmap` function takes two separate lists (one for keys, one for values) and "zips" them together into a single, cohesive `map`.
 * **Syntax:** `zipmap(list_of_keys, list_of_values)`
@@ -358,7 +394,7 @@ output "iam_user_arns" {
 
 ---
 
-## 19. Resource Dependencies
+## 20. Resource Dependencies
 
 Terraform builds a dependency graph (DAG) to determine the exact order in which to create or destroy resources.
 
@@ -373,7 +409,7 @@ resource "aws_instance" "app_server" {
 
 ---
 
-## 20. The `lifecycle` Meta-Argument
+## 21. The `lifecycle` Meta-Argument
 
 By default, Terraform expects to have absolute, strict control over a resource. If a change requires a resource to be replaced, Terraform will destroy the old resource *first*, and then create the new one.
 
@@ -414,7 +450,7 @@ resource "aws_autoscaling_group" "app_asg" {
 
 ---
 
-## 21. Custom Conditions (`precondition` & `postcondition`)
+## 22. Custom Conditions (`precondition` & `postcondition`)
 
 Also located strictly inside the `lifecycle` block, these allow you to validate assumptions about your resources and data sources.
 
@@ -436,7 +472,7 @@ resource "aws_instance" "secure_server" {
 
 ---
 
-## 22. Continuous Validation (`check` blocks)
+## 23. Continuous Validation (`check` blocks)
 
 Introduced in Terraform 1.5, `check` blocks perform validation *outside* the normal resource lifecycle.
 
@@ -445,7 +481,7 @@ Introduced in Terraform 1.5, `check` blocks perform validation *outside* the nor
 
 ---
 
-## 23. Provisioners (The "Last Resort")
+## 24. Provisioners (The "Last Resort")
 
 Terraform is a **declarative** tool (you describe the end state, and Terraform figures out how to build it). Provisioners break this rule by being **imperative** (executing a step-by-step script).
 
@@ -527,7 +563,7 @@ resource "aws_instance" "web" {
 
 ---
 
-## 24. Saving and Inspecting Execution Plans
+## 25. Saving and Inspecting Execution Plans
 
 In a production CI/CD pipeline, you never run `terraform apply` blindly. You must guarantee that the plan evaluated in the CI stage is the *exact* plan executed in the deployment stage.
 
@@ -542,13 +578,13 @@ Because the `.plan` file is binary, you cannot open it in a text editor.
 
 ---
 
-## 25. Querying Outputs
+## 26. Querying Outputs
 
 * **`terraform output`**: Reads the `terraform.tfstate` file and prints the values of any defined `output` blocks. This is incredibly useful for querying infrastructure data (like a generated Database Endpoint or EC2 Public IP) without having to run a full `terraform plan` or API refresh.
 
 ---
 
-## 26. Resource Targeting (`-target`)
+## 27. Resource Targeting (`-target`)
 
 * **`terraform plan -target=<resource_address>`**
 * **`terraform apply -target=<resource_address>`**
@@ -562,7 +598,7 @@ HashiCorp explicitly warns that targeting is an **anti-pattern** for routine ope
 
 ---
 
-## 27. Day 2 Operations & Troubleshooting
+## 28. Day 2 Operations & Troubleshooting
 
 ### Forcing Resource Recreation
 Sometimes a resource becomes corrupted in the cloud (e.g., someone manually SSH'd in and broke a configuration), but your Terraform code hasn't changed. Because the desired state matches the code, `terraform plan` won't detect the issue.
@@ -579,7 +615,7 @@ Terraform determines the exact order to create, modify, or destroy resources by 
 
 ---
 
-## 28. Terraform Logging & Debugging (`TF_LOG`)
+## 29. Terraform Logging & Debugging (`TF_LOG`)
 
 When Terraform fails and the standard console output doesn't give you enough information, you can enable detailed execution logging using environment variables.
 
@@ -591,7 +627,7 @@ When Terraform fails and the standard console output doesn't give you enough inf
 
 ---
 
-## 29. Performance Optimization: API Throttling
+## 30. Performance Optimization: API Throttling
 
 When managing massive enterprise infrastructure, a standard `terraform plan` must query the cloud provider for the real-time status of every single resource in your state file. This can trigger **Slow API Call Throttling** (e.g., AWS temporarily blocking Terraform for making too many requests per second).
 
@@ -603,7 +639,7 @@ When managing massive enterprise infrastructure, a standard `terraform plan` mus
 
 ---
 
-## 30. Terraform Modules
+## 31. Terraform Modules
 
 According to the official HashiCorp documentation, **a module is a container for multiple resources that are used together.** Modules are the primary way to package and reuse resource configurations with Terraform.
 
@@ -714,7 +750,7 @@ If you want to share your custom module publicly, HashiCorp enforces strict rule
 
 ---
 
-## 31. Git for Team Collaboration with Terraform
+## 32. Git for Team Collaboration with Terraform
 
 Git allows multiple engineers to collaborate on the same Terraform codebase safely.
 
@@ -751,7 +787,7 @@ The team can then review the pull request before the Terraform change is applied
 
 ---
 
-## 32. Terraform and `.gitignore`
+## 33. Terraform and `.gitignore`
 
 A `.gitignore` file prevents Git from tracking local Terraform files that should stay out of the repository.
 
@@ -787,7 +823,7 @@ terraform.rc
 
 ---
 
-## 33. Security Risk of Storing Terraform State in Git
+## 34. Security Risk of Storing Terraform State in Git
 
 The Terraform state file is sensitive and should not be stored in Git.
 
@@ -806,7 +842,7 @@ Even if your `.tf` files do not show a password directly, Terraform state may st
 
 ---
 
-## 34. Terraform Backend
+## 35. Terraform Backend
 
 A **backend** defines where Terraform stores its state and how Terraform performs state operations.
 
@@ -844,7 +880,7 @@ Terraform will initialize the backend and may ask whether you want to migrate ex
 
 ---
 
-## 35. S3 Backend
+## 36. S3 Backend
 
 The S3 backend stores Terraform state in an AWS S3 bucket.
 
@@ -887,7 +923,7 @@ The S3 bucket used for Terraform state usually must exist before Terraform can u
 
 ---
 
-## 36. State Locking
+## 37. State Locking
 
 State locking prevents two people or systems from modifying the same Terraform state at the same time.
 
@@ -917,7 +953,7 @@ terraform force-unlock <LOCK_ID>
 
 ---
 
-## 37. Terraform Workspaces (Environment Management)
+## 38. Terraform Workspaces (Environment Management)
 
 While modules help you separate and reuse your *code*, **Workspaces help you separate your *state* (`terraform.tfstate`)**.
 
@@ -951,7 +987,7 @@ HashiCorp recommends using Workspaces to test identical architectures in paralle
 
 ---
 
-## 38. Terraform State Management Commands
+## 39. Terraform State Management Commands
 
 Terraform state commands let you inspect or modify Terraform's state file.
 
@@ -1009,7 +1045,7 @@ Real-world example:
 
 ---
 
-## 39. State Refactoring (`moved` blocks)
+## 40. State Refactoring (`moved` blocks)
 
 If you rename a resource in your `.tf` file (e.g., changing `aws_instance.web` to `aws_instance.frontend`), Terraform will think you deleted the old one and want to create a brand new one, causing accidental deletions.
 
@@ -1024,7 +1060,7 @@ moved {
 
 ---
 
-## 40. Terraform Import
+## 41. Terraform Import
 
 `terraform import` brings an existing real-world resource under Terraform management.
 
@@ -1085,7 +1121,7 @@ terraform apply
 
 ---
 
-## 41. Removed Block
+## 42. Removed Block
 
 A `removed` block tells Terraform that a resource should be removed from state without destroying the real infrastructure.
 
@@ -1133,7 +1169,7 @@ Terraform removes `aws_s3_bucket.old_logs` from state, but leaves the real S3 bu
 
 ---
 
-## 42. Cross-Project Collaboration Using Remote State Data Source
+## 43. Cross-Project Collaboration Using Remote State Data Source
 
 Sometimes one Terraform project needs values created by another Terraform project.
 
@@ -1194,45 +1230,49 @@ Welcome to the practical lab series for mastering Infrastructure as Code (IaC) w
 * **Objective:** Deploy a foundational EC2 instance that dynamically queries the AWS marketplace for the latest OS image.
 * **Concepts Covered:** `provider` configuration, `aws_ami` dynamic data sources, `map(string)` variables, dynamic resource tagging, and `output` extraction.
 
-### [Lab 2: Variable Precedence & State Management](#)
-* **Objective:** Establish modular input parameters and understand how Terraform reconciles desired state against real-world cloud architecture.
-* **Concepts Covered:** `variables.tf`, `terraform.tfvars`, environment variables, declarative configurations, and state file basics.
+### [Lab 2: Multi-S3 Bucket Deployment (Unique Naming Syntax)](#)
+* **Objective:** Create multiple globally unique S3 buckets using dynamic AWS account data and indexed naming.
+* **Concepts Covered:** `aws_caller_identity` data source, `count`, `count.index`, `format()`, S3 bucket naming, and dynamic tags.
 
-### [Lab 3: Scaling Identical Resources](#)
-* **Objective:** Deploy a fleet of identical servers without duplicating resource blocks.
-* **Concepts Covered:** Introduction to the `count` meta-argument, numerical indexing, and using `count.index` for basic resource differentiation.
+### [Lab 3: The Chameleon Deployment (Advanced Logic)](#)
+* **Objective:** Build infrastructure that changes instance size and resource count based on a single environment switch.
+* **Concepts Covered:** Boolean variables, conditional expressions, map lookups, dynamic AMI data sources, and conditional `count`.
 
 ---
 
 ## 📍 Advanced Data Structures & Looping
 
-### [Lab 4: The Automated Network Topology (`for_each` Approach)](#)
-* **Objective:** Deploy isolated VPCs dynamically based on complex nested configurations while automatically sanitizing messy human input errors.
-* **Concepts Covered:** `for_each` loops, `local` variables, string manipulation (`lower()`, `trimspace()`, `replace()`), and nested `map(object({}))` structural types.
-
-### [Lab 5: The Index-Based Network (The `count` Approach)](#)
-* **Objective:** Deploy the exact same network topology from Lab 4, but strictly using `count` to understand the limitations of index-bound deployments.
+### [Lab 4: The Index-Based Network (The `count` Approach)](#)
+* **Objective:** Deploy network resources from a map while using `count`, so you can understand the index-based limitations directly.
 * **Concepts Covered:** Overcoming map restrictions using collection functions (`length()`, `keys()`, `values()`), list extraction, and array indexing.
+
+### [Lab 5: The Automated Network Topology (`for_each` Approach)](#)
+* **Objective:** Deploy isolated VPCs dynamically based on complex nested configurations while automatically sanitizing messy human input errors.
+* **Concepts Covered:** `for_each` loops, `locals`, string manipulation (`lower()`, `trimspace()`, `replace()`), and nested `map(object({}))` structural types.
 
 ### [Lab 6: The Blast Radius (`count` vs. `for_each`)](#)
 * **Objective:** Deploy parallel infrastructure and simulate a Day 2 operations modification (deleting an item) to witness the catastrophic index shift of `count` versus the safe targeting of `for_each`.
 * **Concepts Covered:** Side-by-side execution, type conversion (`toset()`), state file locking (`[0]` vs `["key"]`), and safely modifying active production environments.
 
-### [Lab 7: Network Security & Firewalls](#)
-* **Objective:** Establish secure network boundaries and control inbound/outbound traffic to your cloud resources.
-* **Concepts Covered:** `aws_security_group`, ingress/egress rules, CIDR blocks, port mapping (HTTP/SSH), and attaching security groups to instances (`vpc_security_group_ids`).
+### [Lab 7: Nested Resource Loops (Dynamic Blocks)](#)
+* **Objective:** Refactor hardcoded Security Group ingress rules into dynamic nested blocks generated from structured input data.
+* **Concepts Covered:** Nested block configuration, `dynamic` blocks, `for_each` inside resources, `content`, and iterator-style access.
 
-### [Lab 8: Server Bootstrapping & Provisioners](#)
-* **Objective:** Automate post-deployment server configuration to instantly serve a web application upon creation.
-* **Concepts Covered:** `user_data` bash scripts, `remote-exec` and `local-exec` provisioners, SSH `connection` blocks, and local state extraction.
+### [Lab 8: The Bulletproof Data Engine (Validation & Data Wrangling)](#)
+* **Objective:** Provision IAM users from validated structured input, enforce safety conditions, and export a clean ARN dictionary.
+* **Concepts Covered:** `object` variables, input validation, `for_each`, `toset()`, lifecycle `precondition`, and output `for` expressions.
 
-### [Lab 9: Lifecycle Management & Guardrails](#)
-* **Objective:** Protect critical infrastructure from accidental deletion and safely navigate AWS dependency deadlocks during resource modifications.
-* **Concepts Covered:** The `lifecycle` meta-argument, `create_before_destroy` (bypassing the "in-use" firewall trap), and `prevent_destroy` (hard locks for data vaults).
+---
 
-### [Lab 10: Provider Versioning & Stability](#)
-* **Objective:** Future-proof the infrastructure by pinning specific versions to avoid breaking changes from upstream HashiCorp or AWS updates.
-* **Concepts Covered:** The `terraform` settings block, `required_providers`, `required_version` constraints, provider lockfiles, and safe initialization upgrades (`init -upgrade`).
+## 📍 Operations, Guardrails & Provisioning
+
+### [Lab 9: Production Guardrails & CLI Operations](#)
+* **Objective:** Protect mock production resources, practice safe planning, refactor state addresses, and use emergency CLI operations.
+* **Concepts Covered:** `lifecycle`, `prevent_destroy`, `ignore_changes`, saved plans, `moved` blocks, `apply -replace`, and `terraform graph`.
+
+### [Lab 10: Provisioners & Connections (The Danger Zone)](#)
+* **Objective:** Use provisioners to run local and remote actions around an EC2 instance lifecycle.
+* **Concepts Covered:** `local-exec`, `remote-exec`, `connection` blocks, destroy-time provisioners, and `on_failure = continue`.
 
 ---
 
@@ -1241,3 +1281,11 @@ Welcome to the practical lab series for mastering Infrastructure as Code (IaC) w
 ### [Checkpoint 1: The SAA "Multi-AZ Web Tier"](#)
 * **Objective:** Architect a highly available, Multi-AZ web environment adhering to AWS Solutions Architect Associate (SAA) standards.
 * **Concepts Covered:** Synthesizing dynamic AMIs, `for_each` Availability Zone scaling, variable validation rules, complex `output` mapping using `for` loops, and combining advanced lifecycle guardrails in a single production-ready deployment.
+
+---
+
+## 📍 Modular Architecture
+
+### [Lab 11: The Modular Migration](#)
+* **Objective:** Refactor Checkpoint 1 into a reusable root-module and child-module architecture.
+* **Concepts Covered:** Root modules, child modules, local module sources, variable injection, output aggregation, module isolation, and provider inheritance.
