@@ -21,3 +21,13 @@ module "network" {
   single_nat_gateway = true
   
 }
+
+
+module "security" {
+  source  = "./modules/security"
+  env     = "DEV"
+  project = "checkpoint-2"
+  vpc_id  = module.network.vpc_id
+  vpc_cidr_block = module.network.vpc_cidr_block
+  
+}
