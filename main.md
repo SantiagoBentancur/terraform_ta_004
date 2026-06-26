@@ -96,12 +96,77 @@ Terraform operates using a **declarative** approach to infrastructure management
 
 ---
 
-## 7. Attributes & Interpolation
+## 7. Resources, Arguments, Attributes & Interpolation
 
-* **Cross-Reference Attributes:** Reference the attribute of one resource to use in a different resource.
-    * *Syntax:* `<RESOURCE_TYPE>.<NAME>.<ATTRIBUTE>`
-* **String Interpolation:** Insert variable or attribute values into strings.
-    * *Syntax:* `"${...}"`
+A **resource** is the main building block of Terraform. It represents one real infrastructure object that Terraform should create, update, track, or destroy.
+
+Examples:
+* An AWS EC2 instance
+* An AWS VPC
+* An S3 bucket
+* A security group
+* An IAM user
+
+### Resource Block Anatomy
+```hcl
+resource "aws_instance" "web" {
+  ami           = "ami-12345678"
+  instance_type = "t3.micro"
+
+  tags = {
+    Name = "web-server"
+  }
+}
+```
+
+In this example:
+* **`resource`**: Tells Terraform you are declaring infrastructure to manage.
+* **`aws_instance`**: The resource type. It comes from the AWS provider and tells Terraform what kind of object to create.
+* **`web`**: The local resource name. This is how you identify this resource inside your Terraform code.
+* **Arguments:** Values you configure inside the block, such as `ami`, `instance_type`, and `tags`.
+
+### Arguments vs. Attributes
+* **Arguments** are values you provide to Terraform as input for a resource.
+  * Example: `instance_type = "t3.micro"`
+* **Attributes** are values Terraform can read from a resource, often after the resource is created.
+  * Example: `aws_instance.web.public_ip`
+
+Some values are both configurable arguments and readable attributes, depending on the resource type. Provider documentation tells you which fields are supported.
+
+### Cross-Reference Attributes
+You can reference the attribute of one resource and use it in another resource.
+
+* **Syntax:** `<RESOURCE_TYPE>.<LOCAL_NAME>.<ATTRIBUTE>`
+
+```hcl
+resource "aws_eip" "web_ip" {
+  instance = aws_instance.web.id
+}
+```
+
+Here, `aws_instance.web.id` means:
+* `aws_instance`: Resource type
+* `web`: Local resource name
+* `id`: Attribute exported by that resource
+
+Terraform also uses these references to understand dependencies. If an Elastic IP references an EC2 instance ID, Terraform knows the EC2 instance must exist first.
+
+### String Interpolation
+String interpolation inserts variables, locals, or resource attributes into a string.
+
+* **Syntax:** `"${...}"`
+
+```hcl
+resource "aws_s3_bucket" "logs" {
+  bucket = "app-logs-${terraform.workspace}"
+}
+```
+
+Modern Terraform also allows direct references without interpolation when the entire value is only one expression:
+
+```hcl
+instance = aws_instance.web.id
+```
 
 ---
 
