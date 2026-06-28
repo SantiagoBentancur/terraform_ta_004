@@ -12,10 +12,22 @@ terraform {
 provider "aws" {
   region = "us-east-1"
 }
-  
+
 
 module "network" {
   source  = "./modules/network"
-  env     = "PRD"
+  env     = "DEV"
   project = "checkpoint-2"
+  single_nat_gateway = true
+  
+}
+
+
+module "security" {
+  source  = "./modules/security"
+  env     = "DEV"
+  project = "checkpoint-2"
+  vpc_id  = module.network.vpc_id
+  vpc_cidr_block = module.network.vpc_cidr_block
+  
 }

@@ -64,6 +64,12 @@ Subnets are distributed across two Availability Zones to provide fault tolerance
 | App    | Web Application Servers | AZ1 / AZ2          | `10.0.10.0/24`, `10.0.20.0/24` |
 | DB     | RDS Instances           | AZ1 / AZ2          | `10.0.30.0/24`, `10.0.40.0/24` |
 
+### Route Table Design
+
+The following diagram shows how public, private application, and isolated database subnets are associated with route tables across both Availability Zones.
+
+![Route table design for the three-tier architecture](assets/image.png)
+
 ### Networking Design Questions
 
 Before implementing the network module, consider the following questions:
@@ -135,6 +141,8 @@ Development and Production environments must maintain consistent architecture wh
 | ----------- | -------------- | ---------------------- | -------- |
 | Dev         | 1              | `db.t3.micro`          | No       |
 | Prod        | 2 (one per AZ) | `db.t3.small`          | Yes      |
+
+For the development environment, the network still creates both Availability Zones and all corresponding subnets so the layout remains consistent with production. However, to keep the lab simpler and reduce cost, dev provisions only one NAT Gateway. In that case, both private application subnets route outbound internet traffic through the NAT Gateway in the first public subnet.
 
 ---
 
