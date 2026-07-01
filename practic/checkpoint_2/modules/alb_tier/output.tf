@@ -1,11 +1,14 @@
-# output "sg_alb_id" {
-#   value = aws_security_group.alb.id
-# }
+output "alb_dns_name" {
+  description = "DNS name of the Application Load Balancer"
+  value = aws_lb.alb_terraform.dns_name
+}
 
-# output "sg_db_id" {
-#   value = aws_security_group.db.id
-# }
+output "alb_arn" {
+  description = "ARN of the Application Load Balancer."
+  value       = aws_lb.alb_terraform.arn
+}
 
-# output "sg_app_id" {
-#   value = aws_security_group.app.id
-# }
+output "target_group_arn" {
+  description = "ARN of the application target group used by the compute tier."
+  value       = aws_lb_target_group.app.arn
+}

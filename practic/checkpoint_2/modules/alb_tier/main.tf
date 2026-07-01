@@ -1,10 +1,10 @@
 resource "aws_lb" "alb_terraform" {
-  name               = "aws-lb-terraform"
-  internal           = false
-  load_balancer_type = "application"
-  security_groups    = var.security_groups_ids
-  subnets            = var.subnet_ids
 
+  name                       = "${lower(var.env)}-alb"
+  internal                   = false
+  load_balancer_type         = "application"
+  security_groups            = var.security_groups_ids
+  subnets                    = var.subnet_ids
   enable_deletion_protection = true
 
   # access_logs {
@@ -53,5 +53,12 @@ resource "aws_lb_listener" "http" {
   default_action {
     type             = "forward"
     target_group_arn = aws_lb_target_group.app.arn
+  }
+
+  tags = {
+    Name        = "${var.env}-listener"
+    Environment = var.env
+    Project     = var.project
+    ManagedBy   = "Terraform"
   }
 }
