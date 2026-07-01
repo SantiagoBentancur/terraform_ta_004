@@ -108,6 +108,37 @@ The compute tier must adhere to the following requirements:
 * Use `aws_launch_template`.
 * Use `aws_autoscaling_group`.
 * Do not use legacy Launch Configurations.
+* Deploy application instances into both private application subnets (`app_1` and `app_2`).
+* Attach `sg_app` to the instances through the launch template.
+* Attach the Auto Scaling Group to the ALB application target group.
+* Use one Auto Scaling Group spanning both Availability Zones. Capacity values represent
+  the total number of instances across both Availability Zones, not a per-AZ count.
+
+Consider the following design questions:
+
+1. Why use `aws_launch_template` with `aws_autoscaling_group`?
+2. Why use this approach instead of individual `aws_instance` resources?
+3. Can `aws_instance` resources scale automatically?
+4. What benefits do launch templates and Auto Scaling provide?
+5. What settings or policies control the scaling behavior?
+
+To keep the lab at or near Free Tier usage, use the following environment-specific
+compute capacity:
+
+| Environment | Instance Type | Minimum | Desired | Maximum |
+| ----------- | ------------- | ------: | ------: | ------: |
+| Dev         | `t3.micro`    | 1       | 1       | 2       |
+| Prod        | `t3.small`    | 2       | 2       | 3       |
+
+Development normally runs one instance and therefore does not provide compute-level
+high availability. Production normally runs two instances, allowing the Auto Scaling
+Group to distribute them across the two Availability Zones. AWS Auto Scaling performs
+Availability Zone balancing, but the capacity settings do not guarantee an exact number
+of instances in each Availability Zone at every moment.
+
+These settings are intended to minimize lab costs and do not guarantee that the complete
+architecture is free. In particular, NAT Gateways, the Application Load Balancer, data
+transfer, storage, and simultaneous dev and prod deployments may incur charges.
 
 ### Access Control
 
