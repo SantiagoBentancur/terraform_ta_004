@@ -1,18 +1,31 @@
-# Checkpoint 2: Production-Grade Three-Tier Architecture
+# Checkpoint 2: Production-Inspired Three-Tier Architecture
 
 ## Project Overview
 
-The primary objective of this checkpoint is to become familiar with Terraform modules and integrate the knowledge acquired throughout the previous stages of the course.
+Build a modular three-tier architecture on AWS with a public entry point and isolated
+application and database layers. This checkpoint evaluates module composition,
+networking, security boundaries, load balancing, Auto Scaling, and environment-specific
+configuration.
 
-To achieve this, we will design and build a production-inspired three-tier architecture on AWS using Terraform. The exercise focuses on applying infrastructure-as-code best practices, reinforcing concepts such as modularization, dependency management, network segmentation, security boundaries, and reusable configurations.
+### Learning Objectives
 
-The resulting architecture will host a web application that is publicly accessible while ensuring that both the application and database layers remain isolated from direct internet access. By the end of this checkpoint, you will have consolidated your understanding of Terraform by combining multiple AWS services into a cohesive and maintainable infrastructure deployment.
+By the end of this checkpoint, you should be able to:
+
+* Design reusable Terraform modules with explicit inputs and outputs.
+* Connect modules through resource attributes instead of manual dependencies.
+* Separate public, private application, and isolated database networks.
+* Restrict traffic by referencing security groups between tiers.
+* Connect an Auto Scaling Group to an Application Load Balancer.
+* Apply different capacity and availability settings to development and production.
+* Validate both the Terraform configuration and the deployed application path.
 
 ### Architectural Blueprint
 
-The infrastructure is distributed across two Availability Zones (AZs) to simulate a highly available environment and demonstrate how modular Terraform configurations can be used to provision resilient cloud architectures.
+The infrastructure spans two Availability Zones (AZs). Production uses redundant
+compute and NAT resources; development retains the same subnet layout while using
+reduced capacity to control cost.
 
-![Production-grade three-tier architecture](assets/three-tier-architecture.png)
+![Production-inspired three-tier architecture](assets/three-tier-architecture.png)
 
 ---
 
@@ -28,9 +41,10 @@ The system is divided into three distinct logical tiers.
 
 ---
 
-## Mandatory Directory Structure
+## Required Directory Structure
 
-To maintain modularity, domain separation, and ease of maintenance, the following directory structure must be strictly followed:
+Use the following target structure to keep infrastructure domains separate and make the
+development and production configurations easy to compare:
 
 ```text
 .
@@ -47,12 +61,16 @@ To maintain modularity, domain separation, and ease of maintenance, the followin
 │   └── prod/             # Full production configuration
 ├── scripts/
 │   └── install_app.sh    # Bootstrap: Nginx setup + /health endpoint
+├── .gitignore
 └── README.md             # Project-wide architecture overview
 ```
 
+Some directories are intentionally absent from the starter repository. Create them as
+you reach the corresponding part of the checkpoint.
+
 ---
 
-## Networking Foundation (CIDR Allocation)
+## Part 1: Networking Foundation
 
 The architecture uses a VPC CIDR block of `10.0.0.0/16`.
 
@@ -87,13 +105,14 @@ Before implementing the network module, consider the following questions:
 
 ---
 
-## Technical Constraints and Design Rules
+## Part 2: Security and Session Manager
 
 ### Security Chaining
 
-Security groups must never rely on hard-coded IP addresses.
-
-Instead, each tier must reference the Security Group ID of the preceding tier.
+Security rules between application tiers must not rely on hard-coded IP addresses.
+Instead, each private tier must reference the security group of the preceding tier. The
+public ALB is the intentional exception because it accepts client traffic from the
+internet.
 
 | Security Group | Allowed Source | Allowed Ports            |
 | -------------- | -------------- | ------------------------ |
@@ -101,7 +120,134 @@ Instead, each tier must reference the Security Group ID of the preceding tier.
 | `sg_app`       | `sg_alb`       | Application traffic only |
 | `sg_db`        | `sg_app`       | PostgreSQL (`5432`)      |
 
-### Compute Layer
+Port `443` is included in `sg_alb` for a future HTTPS listener. This checkpoint does
+not create that listener because HTTPS requires an ACM certificate and domain
+validation. Only port `80` is used by the deployed application.
+
+Allowing an unused port does not follow strict least privilege. It is a deliberate lab
+exception so learners can discuss the future HTTPS path. In a production configuration,
+add port `443` only when the HTTPS listener and certificate are ready.
+
+The security module must output the IDs of `sg_alb`, `sg_app`, and `sg_db` for use by
+the ALB, compute, and database modules.
+
+### Access with Session Manager
+
+The application instances live in private subnets and have no public IP addresses. Do
+not open SSH port `22` or create a bastion host. Use AWS Systems Manager Session Manager
+to obtain a shell through the AWS Console or CLI.
+
+Session Manager works through outbound communication initiated by the SSM Agent on the
+instance:
+
+```text
+Learner → AWS Session Manager service ← outbound HTTPS ← SSM Agent on private EC2
+```
+
+Because the instance initiates the connection, no inbound administration port is
+required. In this lab, the private subnet reaches the Systems Manager endpoints through
+the NAT Gateway. A future production design could replace that path with VPC endpoints.
+
+Four pieces must work together:
+
+1. **IAM role** — provides AWS permissions to the EC2 instance. Its trust policy must
+   allow the EC2 service to assume the role.
+2. **`AmazonSSMManagedInstanceCore` policy** — an AWS-managed policy attached to the
+   role. It allows the SSM Agent to register the instance, exchange messages, and open
+   Session Manager control and data channels.
+3. **Instance profile** — the container that makes the IAM role attachable to an EC2
+   instance. The launch template attaches this instance profile to every instance
+   created by the Auto Scaling Group.
+4. **SSM Agent and network path** — the agent must be installed and running, and the
+   instance must be able to make outbound HTTPS connections to Systems Manager.
+
+The resource relationship is:
+
+```text
+AmazonSSMManagedInstanceCore
+            ↓ attached to
+         IAM role
+            ↓ included in
+      instance profile
+            ↓ attached by
+      launch template
+            ↓ used by
+        EC2 instances
+```
+
+`AmazonSSMManagedInstanceCore` grants permissions to the **instance**. It does not grant
+the learner permission to start a session. The AWS identity running the lab must also
+already have permission to use Session Manager; configuring learner identities is
+outside this checkpoint.
+
+Remote access must therefore follow these requirements:
+
+* Bastion hosts are prohibited.
+* SSH ingress rules are prohibited.
+* AWS Systems Manager Session Manager must be used.
+* The SSM Agent must be installed and running on the selected AMI.
+* The application security group must allow the required outbound HTTPS traffic.
+* EC2 instances must attach an IAM role containing the following AWS-managed policy:
+
+```text
+AmazonSSMManagedInstanceCore
+```
+
+Create the IAM role and instance profile in the security module. Output the instance
+profile name or ARN and pass it into the compute module for use by the launch template.
+
+## Part 3: Bootstrap Script
+
+Create a small `scripts/install_app.sh` script. Its purpose is only to prove that an
+instance can initialize itself and pass the ALB health check.
+
+The script should:
+
+* Install Nginx.
+* Create a static `/health` endpoint.
+* Start and enable Nginx.
+* Exit when a command fails.
+
+A minimal implementation is sufficient:
+
+```bash
+#!/usr/bin/env bash
+set -euo pipefail
+
+apt-get update -y
+DEBIAN_FRONTEND=noninteractive apt-get install -y nginx
+printf 'healthy\n' > /var/www/html/health
+systemctl enable --now nginx
+```
+
+Keep the compute module reusable by accepting the encoded user data as an input. The
+environment root module should read and encode the script, for example:
+
+```hcl
+user_data = filebase64("${path.module}/../../scripts/install_app.sh")
+```
+
+Pass that value to the launch template's `user_data` argument. The exact relative path
+depends on where the environment root module is located.
+
+## Part 4: Application Load Balancer
+
+Create an internet-facing Application Load Balancer that provides the only public entry
+point to the application.
+
+Requirements:
+
+* Deploy the ALB into both public subnets.
+* Attach `sg_alb` to the ALB.
+* Create an HTTP listener on port `80`.
+* Create an HTTP target group on port `80`.
+* Configure the target group health check to request `/health` and expect HTTP `200`.
+* Output the ALB DNS name and target group ARN.
+
+The target group ARN is consumed by the compute module so that the Auto Scaling Group
+can register and deregister application instances automatically.
+
+## Part 5: Compute Layer
 
 The compute tier must adhere to the following requirements:
 
@@ -114,16 +260,57 @@ The compute tier must adhere to the following requirements:
 * Use one Auto Scaling Group spanning both Availability Zones. Capacity values represent
   the total number of instances across both Availability Zones, not a per-AZ count.
 
-Consider the following design questions:
+Before implementing the module, answer these design questions:
 
-1. Why use `aws_launch_template` with `aws_autoscaling_group`?
-2. Why use this approach instead of individual `aws_instance` resources?
-3. Can `aws_instance` resources scale automatically?
-4. What benefits do launch templates and Auto Scaling provide?
-5. What settings or policies control the scaling behavior?
+1. Why does an Auto Scaling Group use a launch template instead of managing individual
+   `aws_instance` resources?
+2. How do desired capacity, health checks, and scaling policies affect ASG behavior?
 
-To keep the lab at or near Free Tier usage, use the following environment-specific
-compute capacity:
+### Provided Ubuntu AMI Data Source
+
+The compute tier combines several related concepts: launch templates, Auto Scaling,
+private subnet placement, target group registration, health checks, and instance
+bootstrapping. To keep the exercise focused on those concepts, the Ubuntu AMI lookup is
+provided as starter code.
+
+Add the following block to `modules/compute_tier/main.tf`:
+
+```hcl
+data "aws_ami" "latest_ubuntu" {
+  most_recent = true
+  owners      = ["099720109477"]
+
+  filter {
+    name = "name"
+    values = [
+      "ubuntu/images/hvm-ssd/ubuntu-${var.ubuntu_codename}-${var.ubuntu_version}-amd64-server-*"
+    ]
+  }
+
+  filter {
+    name   = "virtualization-type"
+    values = ["hvm"]
+  }
+}
+```
+
+This data source searches AMIs published by Canonical, filters them by the configured
+Ubuntu codename and version, limits the result to HVM images, and selects the most
+recent matching image. Declare `ubuntu_codename` and `ubuntu_version` as module inputs
+so that the lookup remains configurable.
+
+Use the selected AMI in the launch template through:
+
+```hcl
+image_id = data.aws_ami.latest_ubuntu.id
+```
+
+The learner is still responsible for implementing the launch template, Auto Scaling
+Group, module inputs, subnet and target group connections, IAM instance profile, and
+user data.
+
+To keep the lab cost-conscious, use the following environment-specific compute
+capacity:
 
 | Environment | Instance Type | Minimum | Desired | Maximum |
 | ----------- | ------------- | ------: | ------: | ------: |
@@ -140,33 +327,34 @@ These settings are intended to minimize lab costs and do not guarantee that the 
 architecture is free. In particular, NAT Gateways, the Application Load Balancer, data
 transfer, storage, and simultaneous dev and prod deployments may incur charges.
 
-### Access Control
+### Auto Scaling Scope
 
-Remote administrative access must follow these requirements:
+In this checkpoint, the Auto Scaling Group maintains desired capacity, replaces
+unhealthy instances, and balances capacity across the configured Availability Zones.
+It does not change desired capacity in response to CPU utilization or request volume.
+CloudWatch alarms and dynamic scaling policies are reserved for a future lab.
 
-* Bastion Hosts are prohibited.
-* AWS Systems Manager Session Manager must be used.
-* EC2 instances must attach an IAM Role containing the following managed policy:
+## Part 6: Database Layer
 
-```text
-AmazonSSMManagedInstanceCore
-```
+Create an Amazon RDS for PostgreSQL database in the isolated database tier.
 
-### Bootstrap and Health Checks
+Requirements:
 
-Application instances must initialize automatically using user data.
+* Create a DB subnet group containing both isolated database subnets.
+* Attach `sg_db` to the database.
+* Set `publicly_accessible = false`.
+* Use PostgreSQL and port `5432`.
+* Use the environment-specific instance class and Multi-AZ settings shown below.
+* Pass the database password through a variable rather than writing it directly in the
+  RDS resource.
+* Do not commit the password or output it from the module.
 
-Requirements include:
+> **Credential Warning:** Secure secret management and Terraform sensitive values are
+> outside the scope of this checkpoint and will be covered in a future lab. Use only a
+> temporary lab password, never reuse a real password, and remember that Terraform may
+> store the value in its state file.
 
-* Execute `scripts/install_app.sh` during instance startup.
-* Install and configure Nginx.
-* Expose a `/health` endpoint.
-* Return HTTP `200 OK` from the `/health` endpoint.
-* Configure the ALB Target Group to use `/health` for health checks.
-
-> **Scope Note:** This checkpoint uses an HTTP listener on port `80` only. HTTPS on port `443` is skipped for simplicity because it requires an ACM certificate and domain validation.
-
-### Environment Parity
+## Environment-Specific Configuration
 
 Development and Production environments must maintain consistent architecture while differing in scale and resiliency requirements.
 
@@ -179,23 +367,60 @@ For the development environment, the network still creates both Availability Zon
 
 ---
 
-## Dependency Logic
+## Part 7: Root Module Integration
 
 Terraform automatically builds the dependency graph through resource references.
+Do not add `depends_on` between modules when an input already references another
+module's output.
 
-The root orchestration must maintain the following logical flow:
+The root module must connect the modules through the following logical relationships:
 
 ```text
 network
-    ↓
-security
-    ↓
-alb_tier
-compute_tier
-database
+   ├──→ security
+   │       ├──→ alb_tier
+   │       │       └──→ compute_tier
+   │       └──→ database
+   ├──→ alb_tier
+   ├──→ compute_tier
+   └──→ database
 ```
 
-This sequencing ensures that foundational infrastructure components are provisioned before dependent services.
+Examples of required data flow include:
+
+* Network VPC ID → security and ALB modules.
+* Public subnet IDs → ALB module.
+* Private application subnet IDs → compute module.
+* Isolated database subnet IDs → database module.
+* ALB security group ID → ALB module.
+* Application security group ID → compute module.
+* Database security group ID → database module.
+* ALB target group ARN → compute module.
+* IAM instance profile → compute module.
+* Encoded bootstrap script → compute module.
+
+---
+
+## Part 8: Validation
+
+Run the following checks before considering the checkpoint complete:
+
+```bash
+terraform fmt -check -recursive
+terraform validate
+terraform plan
+```
+
+After deployment, verify that:
+
+* The ALB DNS name responds over HTTP.
+* `http://<alb-dns-name>/health` returns HTTP `200`.
+* EC2 instances have no public IPv4 addresses.
+* Application instances are healthy in the target group.
+* The Auto Scaling Group uses both private application subnets.
+* Session Manager can connect to an instance without SSH.
+* The database is not publicly accessible.
+* Application security rules allow only the intended tier-to-tier traffic.
 
 ---
 
@@ -205,9 +430,10 @@ The implementation is considered complete when all of the following criteria are
 
 ### Modularization
 
-* No hard-coded values.
-* All configurable values are exposed through `variables.tf`.
+* Environment-specific and reusable values are exposed through `variables.tf`.
+* Fixed architectural constants are clearly documented when kept inside a module.
 * Modules remain self-contained and reusable.
+* Module dependencies are created through inputs and outputs.
 
 ### Documentation
 
@@ -220,7 +446,7 @@ The implementation is considered complete when all of the following criteria are
 
 ### Tagging
 
-All AWS resources must include the following tags:
+All taggable AWS resources must include the following tags:
 
 | Tag           | Value                        |
 | ------------- | ---------------------------- |
@@ -234,10 +460,9 @@ All AWS resources must include the following tags:
 * Local Terraform state is acceptable for this checkpoint.
 * Migration to remote state using S3 and DynamoDB will be implemented in a later phase.
 
----
+### Final Checks
 
-## Summary
-
-This checkpoint establishes a production-grade AWS foundation emphasizing modularity, security, high availability, and operational best practices.
-
-By separating responsibilities into dedicated Terraform modules and enforcing strict security boundaries between tiers, the resulting infrastructure provides a scalable and maintainable platform suitable for future enhancements and production workloads.
+* `terraform fmt -check -recursive` succeeds.
+* `terraform validate` succeeds.
+* `terraform plan` contains no unexpected resources or replacements.
+* All functional validation checks in Part 8 pass.
