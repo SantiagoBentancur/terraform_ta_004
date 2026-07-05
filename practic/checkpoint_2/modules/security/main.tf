@@ -91,7 +91,7 @@ resource "aws_vpc_security_group_ingress_rule" "allow_db_from_app" {
 }
 
 resource "aws_vpc_security_group_egress_rule" "allow_db_all_traffic_ipv4" {
-  security_group_id = aws_security_group.db.id
+  security_group_id            = aws_security_group.db.id
   referenced_security_group_id = aws_security_group.app.id
-  ip_protocol       = "-1"
+  ip_protocol                  = "-1"
 }

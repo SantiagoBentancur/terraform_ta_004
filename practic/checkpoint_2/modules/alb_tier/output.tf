@@ -1,6 +1,6 @@
 output "alb_dns_name" {
   description = "DNS name of the Application Load Balancer"
-  value = aws_lb.alb_terraform.dns_name
+  value       = aws_lb.alb_terraform.dns_name
 }
 
 output "alb_arn" {

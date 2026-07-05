@@ -8,6 +8,12 @@ variable "azs" {
   }
 }
 
+variable "app_subnet_ids" {
+  description = "IDs of the private application subnets used by the Auto Scaling Group."
+  type        = list(string)
+}
+
+
 variable "env" {
   description = "Deployment environment used to select environment-specific compute settings."
   type        = string
@@ -40,3 +46,44 @@ variable "ubuntu_codename" {
   type        = string
   default     = "jammy"
 }
+
+
+variable "project" {
+  description = "Project name used for resource tagging"
+  type        = string
+  default     = "checkpoint-2"
+}
+
+variable "app_security_group_ids" {
+  description = "Security group IDs attached to application instances"
+  type        = list(string)
+}
+
+variable "target_group_arns" {
+  description = "ALB target group ARNs attached to the Auto Scaling Group"
+  type        = list(string)
+}
+
+variable "auto_scaling_set_up" {
+  type = map(object({
+    max_size = number, min_size = number, health_check_grace_period = number, health_check_type = string, desired_capacity = number
+    }
+  ))
+  default = {
+    "DEV" = {
+      "max_size"                  = 2
+      "min_size"                  = 1
+      "health_check_grace_period" = 300
+      "health_check_type"         = "ELB"
+      "desired_capacity"          = 1
+    }
+    "PRD" = {
+      "max_size"                  = 3
+      "min_size"                  = 2
+      "health_check_grace_period" = 300
+      "health_check_type"         = "ELB"
+      "desired_capacity"          = 2
+    }
+  }
+}
+

@@ -31,8 +31,9 @@ variable "env" {
 }
 
 variable "project" {
-  type    = string
-  default = "checkpoint-2"
+  description = "Project name used for resource tagging"
+  type        = string
+  default     = "checkpoint-2"
 }
 
 variable "single_nat_gateway" {
