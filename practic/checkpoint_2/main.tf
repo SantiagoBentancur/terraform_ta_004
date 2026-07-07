@@ -24,10 +24,10 @@ module "network" {
 
 
 module "security" {
-  source         = "./modules/security"
-  env            = "DEV"
-  project        = "checkpoint-2"
-  vpc_id         = module.network.vpc_id
+  source  = "./modules/security"
+  env     = "DEV"
+  project = "checkpoint-2"
+  vpc_id  = module.network.vpc_id
 }
 
 module "alb_tier" {
@@ -51,5 +51,6 @@ module "compute_tier" {
   target_group_arns = [
     module.alb_tier.target_group_arn
   ]
-  app_subnet_ids = module.network.private_app_subnet_ids
+  app_subnet_ids            = module.network.private_app_subnet_ids
+  iam_instance_profile_name = module.security.app_instance_profile_name
 }

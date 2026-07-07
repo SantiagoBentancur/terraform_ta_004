@@ -38,6 +38,10 @@ resource "aws_launch_template" "web_app" {
 
   image_id = data.aws_ami.latest_ubuntu.id
 
+  iam_instance_profile {
+    name = var.iam_instance_profile_name
+  }
+
   instance_initiated_shutdown_behavior = "terminate"
 
   instance_type = var.type_instance[var.env]

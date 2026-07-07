@@ -13,6 +13,11 @@ variable "app_subnet_ids" {
   type        = list(string)
 }
 
+variable "iam_instance_profile_name" {
+  description = "Name of the IAM instance profile attached to application EC2 instances."
+  type        = string
+}
+
 
 variable "env" {
   description = "Deployment environment used to select environment-specific compute settings."
@@ -86,4 +91,3 @@ variable "auto_scaling_set_up" {
     }
   }
 }
-
