@@ -362,16 +362,23 @@ Terraform displays sensitive values as `(sensitive value)` in plans and normal o
 
 ### Critical Limitation
 
-`sensitive = true` provides redaction, not storage protection. Terraform can still store the real value in state and saved plan files.
+`sensitive = true` provides **redaction, not storage protection**:
 
-| Mechanism | Hidden from normal CLI output? | Omitted from plan and state? |
+* In the human-readable output from `terraform plan`, Terraform replaces the value with `(sensitive value)` instead of displaying the plaintext value.
+* In a saved plan file created with `terraform plan -out=<filename>`, Terraform still stores the real value. Treat saved plan files as sensitive artifacts.
+* In `terraform.tfstate`, Terraform normally stores the real value in plaintext even when it is marked sensitive. The sensitive flag only tells Terraform to redact the value when presenting it.
+* Machine-readable output, such as `terraform show -json`, can expose sensitive values from a plan or state file. Do not publish it without protecting or sanitizing it.
+
+| Mechanism | Visible in Normal Plan Text? | Real Value Stored in Saved Plan or State? |
 | :--- | :---: | :---: |
-| `sensitive = true` | Yes | No |
-| `ephemeral = true` | Not necessarily | Yes |
-| `sensitive = true` and `ephemeral = true` | Yes | Yes |
-| Provider write-only argument | Yes | Yes |
+| `sensitive = true` | No—shown as `(sensitive value)` | Yes |
+| `ephemeral = true` | May require `sensitive = true` for redaction | No |
+| `sensitive = true` and `ephemeral = true` | No | No |
+| Provider write-only argument | No | No |
 
 Use `nonsensitive()` only when intentionally removing the sensitive marking from data that is genuinely safe to reveal.
+
+> **Note:** Ephemeral values are introduced here only for comparison. We will discuss them in detail in a future section.
 
 ---
 
@@ -442,7 +449,67 @@ locals {
   }
 }
 ```
-*You reference them in your resources using `local.<name>` (e.g., `local.common_tags`).*
+
+### Declaration vs. Reference Syntax
+
+Terraform deliberately uses two similar but different words:
+
+* **Declare local values with `locals` (plural):** `locals { ... }`
+* **Reference one declared value with `local` (singular):** `local.<name>`
+
+```hcl
+locals {
+  environment_name = "production"
+}
+
+resource "aws_s3_bucket" "logs" {
+  bucket = "application-logs-${local.environment_name}"
+}
+```
+
+There is no `locals.environment_name` reference and no `local {}` declaration block.
+
+### Local Values vs. Input Variables
+
+Both avoid repeating hardcoded values, but they solve different problems:
+
+| Question | Input Variable (`variable`) | Local Value (`locals`) |
+| :--- | :--- | :--- |
+| Who chooses the value? | A caller, `.tfvars` file, environment variable, CLI argument, or default | The module's own configuration |
+| Can callers override it directly? | Yes | No |
+| Main purpose | Make a module configurable and reusable | Name, transform, combine, or reuse internal expressions |
+| Reference syntax | `var.<name>` | `local.<name>` |
+| Typical example | Region, environment name, instance type, CIDR supplied by a caller | Common tags, normalized names, or a value calculated from several inputs |
+
+Use an **input variable** when the value is part of the module's public interface and should be chosen by whoever calls the module. Use a **local value** when the module should calculate or control the value internally.
+
+```hcl
+variable "environment" {
+  type = string
+}
+
+locals {
+  name_prefix = "myapp-${lower(var.environment)}"
+  common_tags = {
+    Environment = var.environment
+    ManagedBy   = "Terraform"
+  }
+}
+```
+
+Here, the caller supplies `var.environment`, while the module derives `local.name_prefix` and `local.common_tags` from it.
+
+### When Local Values Become a Disadvantage
+
+Local values improve readability when they give a meaningful name to repeated or complicated expressions. Overusing them can make configuration harder to understand:
+
+* A local used only once for a simple literal can force the reader to jump between files without removing complexity.
+* Long chains such as `local.a` → `local.b` → `local.c` hide the real value and make troubleshooting difficult.
+* Too many generic names such as `local.value` or `local.config` obscure intent.
+* Using locals for values that callers reasonably need to change makes the module rigid; those values should usually be input variables.
+* Large `locals` blocks containing unrelated calculations become difficult to navigate and maintain.
+
+Prefer a local when it removes meaningful duplication or names a transformation. Prefer a direct expression when it is short, obvious, and used only once.
 
 ---
 
@@ -1640,7 +1707,7 @@ resource "aws_instance" "app" {
 
 ---
 
-## 51. HCP Terraform and Terraform Enterprise
+## 51. HashiCorp Cloud Platform (HCP) Terraform and Terraform Enterprise
 
 **HCP Terraform** is HashiCorp's managed Software as a Service (SaaS) platform for running Terraform collaboratively. **Terraform Enterprise** provides similar collaboration and governance capabilities but runs in infrastructure controlled by the customer.
 
