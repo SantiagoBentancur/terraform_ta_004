@@ -431,24 +431,27 @@ variable "image_id" {
 
 ## 15. Local Values (`locals`)
 
-A `locals` block assigns a name to an expression or value, allowing you to use it multiple times within a module without repeating it.
+A `locals` block assigns a name to an expression or value so it can be reused throughout your Terraform configuration without repeating the same logic.
 
-* Local values are available throughout the current module, including across its `.tf` files.
-* They are heavily used to transform, clean, or combine messy input variables before passing them to cloud provider resources.
+* Local values can hold fixed values or calculate new values from variables, resource attributes, and functions.
+* They are useful for common tags, naming conventions, repeated expressions, and transformed or combined input values.
+* A local value can be referenced from any `.tf` file in the same Terraform working directory.
+
+> **Scope Note:** Local values are available only within the Terraform configuration where they are declared. A separate configuration in another directory does not automatically receive them.
 
 ```hcl
 locals {
-  # Standard local variable
-  common_tags = {
-    Owner = "DevOps Team"
-  }
+  application_name = "customer-portal"
 
-  # Transforming an input variable using a 'for' expression
-  clean_environments = {
-    for k, v in var.network_environments : lower(k) => v
+  common_tags = {
+    Application = local.application_name
+    Owner       = "DevOps Team"
+    ManagedBy   = "Terraform"
   }
 }
 ```
+
+This declares two local values: `application_name` and `common_tags`. They can be referenced elsewhere as `local.application_name` and `local.common_tags`.
 
 ### Declaration vs. Reference Syntax
 
@@ -475,13 +478,13 @@ Both avoid repeating hardcoded values, but they solve different problems:
 
 | Question | Input Variable (`variable`) | Local Value (`locals`) |
 | :--- | :--- | :--- |
-| Who chooses the value? | A caller, `.tfvars` file, environment variable, CLI argument, or default | The module's own configuration |
-| Can callers override it directly? | Yes | No |
-| Main purpose | Make a module configurable and reusable | Name, transform, combine, or reuse internal expressions |
+| Where does the value come from? | A user, `.tfvars` file, environment variable, CLI argument, or declared default | An expression written inside the Terraform configuration |
+| Can it be supplied or overridden from outside the configuration? | Yes | No |
+| Main purpose | Allow the same configuration to accept different input values | Name, transform, combine, or reuse values inside the configuration |
 | Reference syntax | `var.<name>` | `local.<name>` |
-| Typical example | Region, environment name, instance type, CIDR supplied by a caller | Common tags, normalized names, or a value calculated from several inputs |
+| Typical example | Region, environment name, instance type, or CIDR | Common tags, normalized names, or a value calculated from several inputs |
 
-Use an **input variable** when the value is part of the module's public interface and should be chosen by whoever calls the module. Use a **local value** when the module should calculate or control the value internally.
+Use an **input variable** when a user or automation should be able to provide a different value without editing the Terraform configuration. Use a **local value** when the configuration should calculate, name, or control the value internally.
 
 ```hcl
 variable "environment" {
@@ -489,7 +492,7 @@ variable "environment" {
 }
 
 locals {
-  name_prefix = "myapp-${lower(var.environment)}"
+  name_prefix = "myapp-${var.environment}"
   common_tags = {
     Environment = var.environment
     ManagedBy   = "Terraform"
@@ -497,7 +500,7 @@ locals {
 }
 ```
 
-Here, the caller supplies `var.environment`, while the module derives `local.name_prefix` and `local.common_tags` from it.
+Here, the user supplies `var.environment`, while the configuration derives `local.name_prefix` and `local.common_tags` from it.
 
 ### When Local Values Become a Disadvantage
 
@@ -506,7 +509,7 @@ Local values improve readability when they give a meaningful name to repeated or
 * A local used only once for a simple literal can force the reader to jump between files without removing complexity.
 * Long chains such as `local.a` → `local.b` → `local.c` hide the real value and make troubleshooting difficult.
 * Too many generic names such as `local.value` or `local.config` obscure intent.
-* Using locals for values that callers reasonably need to change makes the module rigid; those values should usually be input variables.
+* Using locals for values that users or automation reasonably need to change makes the configuration less flexible; those values should usually be input variables.
 * Large `locals` blocks containing unrelated calculations become difficult to navigate and maintain.
 
 Prefer a local when it removes meaningful duplication or names a transformation. Prefer a direct expression when it is short, obvious, and used only once.
