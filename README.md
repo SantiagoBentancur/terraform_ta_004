@@ -1534,11 +1534,11 @@ terraform apply
 
 ---
 
-## 49. Removed Block
+## 49. Removed Blocks
 
-A `removed` block tells Terraform that a resource should be removed from state without destroying the real infrastructure.
+A `removed` block records that Terraform should stop managing a resource. Unlike deleting a resource block by itself, it lets you explicitly choose whether Terraform destroys the real infrastructure or only removes the resource from state.
 
-This is a safer, code-reviewed alternative to running:
+To keep the real infrastructure, set `destroy = false`. This is a code-reviewed alternative to running:
 ```bash
 terraform state rm <resource_address>
 ```
@@ -1572,11 +1572,20 @@ terraform apply
 
 Terraform removes `aws_s3_bucket.old_logs` from state, but leaves the real S3 bucket running in AWS.
 
+The `lifecycle` block is required for a `removed` block and makes the removal behavior explicit. If `destroy` is `true`—which is the default behavior—Terraform plans to destroy the real resource before removing it from state. Use `destroy = false` only when the real object must continue to exist, and always inspect `terraform plan` carefully.
+
+After the removal is applied:
+
+* Terraform no longer tracks or updates the resource.
+* The old resource address can no longer be referenced elsewhere in the configuration.
+* If `destroy = false`, you become responsible for managing or importing the real resource elsewhere.
+
 ### `removed` Block vs `terraform state rm`
-| Method | Stored in Code? | Reviewable in Git? | Destroys Real Resource? |
-| :--- | :---: | :---: | :---: |
-| `terraform state rm` | No | No | No |
-| `removed` block with `destroy = false` | Yes | Yes | No |
+| Method | Stored in Code? | Reviewable in Git? | Default Result |
+| :--- | :---: | :---: | :--- |
+| `terraform state rm` | No | No | Forgets the resource without destroying it |
+| `removed` with `destroy = false` | Yes | Yes | Forgets the resource without destroying it |
+| `removed` with `destroy = true` | Yes | Yes | Destroys the resource and removes it from state |
 
 > **Best Practice:** Use a `removed` block when the change should be visible in code review and repeatable across team environments.
 
@@ -1628,6 +1637,171 @@ resource "aws_instance" "app" {
 ```
 
 > **Important:** Remote state sharing exposes all root module outputs from the other project. Only output values that other projects really need.
+
+---
+
+## 51. HCP Terraform and Terraform Enterprise
+
+**HCP Terraform** is HashiCorp's managed Software as a Service (SaaS) platform for running Terraform collaboratively. **Terraform Enterprise** provides similar collaboration and governance capabilities but runs in infrastructure controlled by the customer.
+
+Both products build on the Terraform CLI workflow by adding centralized state, remote execution, access control, run history, policy enforcement, and integrations.
+
+### Core Structure
+
+```text
+Organization
+└── Project
+    ├── Workspace
+    └── Workspace
+```
+
+* **Organization:** The top-level administrative boundary containing users, teams, projects, policies, and shared settings.
+* **Project:** Groups related workspaces and provides an access-control boundary for teams.
+* **Workspace:** Manages a distinct collection of infrastructure. It contains or references the Terraform configuration, variables, state, run history, and workspace settings.
+* Every workspace belongs to exactly one project. New organizations include a default project.
+
+> **Exam Tip:** One HCP Terraform workspace generally represents one Terraform root module and one state file. It is not simply another environment selected with `terraform workspace select`.
+
+### HCP Terraform Workspaces vs. CLI Workspaces
+
+| Concept | Terraform CLI Workspace | HCP Terraform Workspace |
+| :--- | :--- | :--- |
+| Main purpose | Creates multiple state instances for the same configuration | Manages a distinct infrastructure collection |
+| Configuration | Uses the current local working directory | Obtained from VCS or uploaded through the CLI/API |
+| State | Separate state for each CLI workspace | State and state history are stored in HCP Terraform |
+| Execution | Usually runs locally | Runs remotely by default |
+| Collaboration | Limited by itself | Includes permissions, run history, policies, and integrations |
+
+### Run Workflows
+
+HCP Terraform supports three primary workflows:
+
+* **VCS-driven:** The workspace is normally linked to a Git repository and a specific branch. HCP Terraform registers a webhook with the VCS provider. When a commit is pushed or merged to the tracked branch, the webhook queues a run that starts with `terraform plan`. Opening or updating a pull request normally triggers a speculative plan that previews changes but cannot be applied. Directory and branch filters can limit which changes trigger runs.
+* **CLI-driven:** Commands such as `terraform plan` and `terraform apply` start remote operations, and their output streams back to the local terminal.
+* **API-driven:** Automation uploads configuration versions and controls runs through the HCP Terraform API.
+
+In the VCS workflow, the plan is associated with the exact Git commit that produced it. By default, a successful plan waits for an authorized user to confirm the apply; a workspace can also be configured for automatic apply. Every apply is based on a completed plan. Standard runs are queued and processed in order within each workspace so that concurrent operations do not update the same state simultaneously. Plan-only or speculative runs are an exception: they can run without waiting for the normal workspace run queue and can never be applied.
+
+### Execution Modes
+
+* **Remote execution:** HCP Terraform runs Terraform in a temporary remote environment. This is the default and provides a consistent execution environment.
+* **Local execution:** Terraform runs on the user's machine or CI worker while HCP Terraform stores the remote state.
+* **Agent execution:** HCP Terraform agents execute runs inside private, isolated, or on-premises networks that the hosted runners cannot reach.
+
+### Air-Gapped Terraform Enterprise
+
+An **air-gapped environment** is an isolated network with no direct Internet access. HCP Terraform is a hosted SaaS product and therefore is not deployed inside an air-gapped network. Organizations that require customer-controlled or disconnected infrastructure can self-host Terraform Enterprise in a restricted or air-gapped environment.
+
+Air-gapped deployments must make all required artifacts available inside the restricted network. This normally includes the Terraform Enterprise license and images, Terraform binaries, providers, modules, and any VCS or other services used during runs. Internal registries and mirrors replace public Internet sources. The exact installation and upgrade artifacts depend on the Terraform Enterprise version and deployment method; older Replicated installations use `.airgap` bundles, so that file format should not be treated as a universal requirement for every deployment.
+
+> **Exam Distinction:** Terraform Enterprise supports self-hosted and air-gapped deployment. HCP Terraform is managed and hosted by HashiCorp. An HCP Terraform agent can reach private infrastructure, but that is not the same as installing the HCP Terraform SaaS control plane in an air-gapped network.
+
+### Connecting with the `cloud` Block
+
+The modern Terraform CLI integration uses a `cloud` block. It connects the current configuration to an HCP Terraform or Terraform Enterprise organization and workspace:
+
+```hcl
+terraform {
+  cloud {
+    organization = "example-organization"
+
+    workspaces {
+      name = "network-production"
+    }
+  }
+}
+```
+
+Authenticate the CLI before initializing the configuration:
+
+```bash
+terraform login
+terraform init
+terraform plan
+```
+
+This preserves a familiar local CLI experience: you type normal Terraform commands and see the output in your terminal. With remote execution, however, Terraform actually runs in HCP Terraform using the remote workspace's variables, credentials, state, and configured Terraform version. The state and run history remain centrally available to the team.
+
+In a CLI-driven workspace, `terraform plan` starts a remote speculative plan and `terraform apply` can start a full remote run. In a VCS-driven workspace, the repository remains the source of truth, so configuration changes and apply runs normally flow through commits and the HCP Terraform UI rather than a CLI-driven `terraform apply`.
+
+The `cloud` block can select one workspace by `name` or select workspaces dynamically using `tags`. It cannot be combined with a `backend` block because both configure where Terraform performs state operations. The older `remote` backend still exists, but the built-in `cloud` integration is preferred for modern Terraform configurations.
+
+### Variables and Credentials
+
+An HCP Terraform workspace can store two kinds of variables:
+
+* **Terraform variables:** Supply values to declared input variables, similar to `.tfvars` values.
+* **Environment variables:** Configure the run environment, including provider credentials such as `AWS_ACCESS_KEY_ID`.
+
+Variables can be marked sensitive to redact them from the user interface and ordinary logs. Variable sets can share common values across multiple workspaces or projects.
+
+> **Security Reminder:** Redaction does not guarantee that a value is absent from Terraform state. Continue treating state as sensitive data.
+
+### Plans, Collaboration, and Governance
+
+HCP Terraform has multiple editions, including Free and paid plans such as Essentials, Standard, and Premium. The editions provide different limits and capabilities. Core collaboration features are broadly available, while advanced governance, security, health, and scale capabilities are associated with particular editions. Always check the current plan comparison instead of assuming every feature is included in every plan.
+
+Depending on the selected edition, HCP Terraform can provide:
+
+* Remote state storage, state history, and state locking
+* Team-based permissions and project-level access control
+* VCS integration and remote run history
+* Private module and provider registries
+* Policy enforcement with Sentinel or OPA
+* Run tasks that integrate external security or compliance systems
+* Notifications, cost estimates, drift detection, and continuous validation
+
+### Pricing Concept
+
+HCP Terraform offers Free, Essentials, Standard, and Premium cloud editions. Terraform Enterprise is self-managed and uses custom contract pricing. Paid HCP Terraform editions are cumulative: Standard includes the Essentials features, and Premium includes the Standard and Essentials features.
+
+A managed resource is generally a provider-managed resource recorded in an HCP Terraform state file. Individual instances created with `count` or `for_each` contribute to the resource count, while data sources, `null_resource`, and `terraform_data` do not count as managed resources for this purpose.
+
+For pay-as-you-go billing, managed resources are measured hourly. Each partial hour counts as a full hour, and the highest number of managed resources present during that hour determines the charge. Contracted plans may use negotiated rates and discounts.
+
+### Plan Comparison
+
+The following prices were published in **July 2026** and are included as a study reference. Always verify current prices before making a purchasing decision.
+
+| Edition | Published Starting Price | Intended Use and Important Differences |
+| :--- | :--- | :--- |
+| **Free** | No charge for up to 500 managed resources | Small teams; includes remote state, remote runs, VCS integration, a private registry, SSO, policy enforcement, and run tasks, subject to Free-plan limits |
+| **Essentials** | $0.10 per resource/month, rated hourly at $0.00013 | Professional individuals and teams adopting infrastructure as code; includes the core remote workflow, projects, secure variables, team management, and limited test-integrated module publishing |
+| **Standard** | $0.47 per resource/month, rated hourly at $0.00064 | Adds standardization and lifecycle-management capabilities such as module deprecation, team notifications and change requests, no-code provisioning, audit logging, drift detection, and continuous validation |
+| **Premium** | $0.99 per resource/month, rated hourly at $0.00135 | Adds higher-level security, governance, and self-service capabilities, including module revocation and additional platform actions; includes all Standard and Essentials features |
+| **Terraform Enterprise** | Custom contract pricing | Self-managed deployment for organizations requiring control over security, compliance, networking, operations, or air-gapped environments |
+
+> **Exam Focus:** Know that billing and plan selection occur at the organization level, paid editions build on lower editions, RUM counts managed resource instances rather than workspaces or users, and Terraform Enterprise is the self-managed offering. Exact prices are less important than these distinctions.
+
+### Sentinel Policy as Code
+
+**Sentinel** is HashiCorp's policy-as-code framework. HCP Terraform and Terraform Enterprise can evaluate Sentinel policies against the Terraform configuration, state, and generated plan **after `terraform plan` and before `terraform apply`**. This allows an organization to enforce rules before infrastructure changes are made.
+
+Common policies can require mandatory tags, restrict cloud regions or machine sizes, prevent public access, or require approved Terraform versions.
+
+Policies are grouped into **policy sets**, which can be assigned to selected workspaces or applied more broadly. Sentinel has three enforcement levels:
+
+| Enforcement Level | Result When the Policy Fails |
+| :--- | :--- |
+| **Advisory** | Reports the failure but allows the run to continue |
+| **Soft mandatory** | Blocks the run unless an authorized user overrides it; the override is recorded |
+| **Hard mandatory** | Blocks the run and has no normal per-policy override |
+
+> **Exam Tip:** Sentinel does not provision infrastructure. It is a governance checkpoint in the run workflow between the plan and apply stages. Sentinel availability and policy-set limits depend on the HCP Terraform edition.
+
+> **Current-Platform Nuance:** In the traditional Sentinel model, a hard-mandatory failure cannot be overridden. Newer policy-evaluation workflows can support a separately configured policy-set override for authorized users, and that setting takes precedence over an individual policy's enforcement level.
+
+### Key Exam Distinctions
+
+* HCP Terraform is hosted by HashiCorp; Terraform Enterprise is customer-managed.
+* A workspace combines configuration, variables, state, settings, and run history for one infrastructure collection.
+* Remote execution and remote state storage are related but separate capabilities.
+* A speculative plan previews changes and cannot apply them.
+* A VCS-linked workspace normally watches a Git branch: commits trigger runs, and pull requests trigger speculative plans.
+* VCS-, CLI-, and API-driven workflows all use HCP Terraform workspaces.
+* Projects group workspaces and help scope team permissions.
+* Sentinel evaluates policy after the plan and before the apply.
+* Terraform Enterprise, rather than HCP Terraform SaaS, is the option for air-gapped deployment.
 
 ---
 
