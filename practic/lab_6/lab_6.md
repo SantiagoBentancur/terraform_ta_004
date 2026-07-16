@@ -1,4 +1,4 @@
-# 🛠️ Lab 6: The Blast Radius (`count` vs. `for_each`)
+# Lab 6: The Blast Radius (`count` vs. `for_each`)
 
 ## Concepts to Practice
 
@@ -103,7 +103,7 @@ Do not apply! Just run the evaluation engine to see what Terraform *wants* to do
 terraform plan
 ```
 
-### 🔍 Analyzing the Terminal Output
+### Analyzing the Terminal Output
 
 Scroll through your plan output carefully. You will see two completely different behaviors:
 
@@ -119,3 +119,22 @@ Scroll through your plan output carefully. You will see two completely different
 * It plans to **destroy** `aws_sns_topic.count_topics[2]`, the original security topic.
 * It plans to **replace** `aws_sns_topic.count_topics[1]`, changing its name from "billing" to "security".
 * Removing one list item therefore affects two resource instances because their numeric addresses shifted.
+
+---
+
+## Supplement: Terraform Console Practice
+
+This lab also includes a console-only practice section in `console/`.
+
+Use it to practice Terraform expressions, collection transformations, filtering, and type conversion with `terraform console`. No cloud resources are created in this supplement.
+
+Recommended path:
+
+```bash
+cd console
+terraform init
+terraform validate
+terraform console
+```
+
+This supplement is useful for reviewing functions such as `flatten()`, `compact()`, `distinct()`, `merge()`, `split()`, `join()`, `tolist()`, `tomap()`, and `toset()`.
