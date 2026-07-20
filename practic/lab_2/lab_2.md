@@ -1,56 +1,112 @@
-# 🛠️ Lab 2: Multi-S3 Bucket Deployment (Unique Naming Syntax)
+# Lab 2: Multiple S3 Buckets with `count`
 
 ## Objective
-Build a dynamic Terraform configuration that deploys multiple storage buckets simultaneously using a single resource block, while programmatically guaranteeing global naming uniqueness to prevent cloud provider collisions.
+
+Create three globally named S3 buckets from one resource block. This lab introduces `count`, `count.index`, the `format()` function, and the `aws_caller_identity` data source.
+
+## Concepts to Practice
+
+* Reading the current AWS account ID with a data source
+* Creating multiple resource instances with `count`
+* Using `count.index` inside resource arguments
+* Constructing strings with `format()`
+* Understanding numeric resource addresses
+
+## Prerequisites
+
+* Complete Lab 1.
+* Review Sections 10–12, 17, and 19 in the theoretical README.
+* Configure AWS credentials with permission to create and delete S3 buckets.
+
+> **Cost and Cleanup Warning:** Empty S3 buckets generally have no meaningful storage cost, but you should still destroy all lab resources when finished.
 
 ## Requirements
 
-### 1. Variables
-* **`s3_lab2`**: Define a standard string input variable to serve as the baseline prefix for your bucket names (e.g., `"my-project-bucket"`).
+Create the configuration in `lab_2.tf` without opening the solution first:
 
-### 2. Data Source
-* Use the `aws_caller_identity` data source block to automatically query and fetch your active AWS Account ID dynamically during the runtime plan phase.
+1. Configure the AWS provider to use `us-east-1`.
+2. Declare a string variable named `bucket_prefix`.
+   * Add a description.
+   * Use `terraform-associate-lab2` as its default value.
+3. Use the `aws_caller_identity` data source to obtain the current AWS account ID.
+4. Declare one `aws_s3_bucket` resource named `lab`.
+5. Configure the resource to create three instances with `count`.
+6. Construct each bucket name with `format()` using, in this order:
+   * The bucket-prefix variable
+   * The AWS account ID
+   * The current numeric index
+7. Separate the three name components with hyphens.
+8. Add `Name`, `Identifier`, and `ManagedBy` tags.
+   * Include the current index in `Name`, example: "Lab 2 bucket <INDEX_COUNT>".
+   * Convert the numeric index to a string for `Identifier`.
+   * Set `ManagedBy` to `Terraform`.
 
-### 3. S3 Resource (`aws_s3_bucket`)
-* **Resource Count**: Implement a single resource block with `count = 3` to provision three distinct buckets concurrently.
-* **String Formatting**: Build the unique bucket name argument by binding the variables together using the native `format()` utility. The naming taxonomy must resolve as: `[base_name]-[aws_account_id]-[index_number]`.
-* **Metadata Tags**: Leverage the sequential loop variable (`count.index`) inside the resource tags to give each bucket a clear, identifiable tracking string in the AWS management console.
+The AWS account ID makes the name specific to your account, while the index makes the three names different. S3 uses a global bucket namespace by default, so each complete name must still be available.
 
----
+## Execution Steps
 
-## Key Architectural Features
-1. **Resource Duplication Avoidance:** Demonstrates how `count` simplifies resource scaling from a single target specification block.
-2. **Dynamic Collision Protection:** Uses an organization's specific AWS Account ID to ensure that names remain separate and globally unique when running identical configurations across different provider sandboxes.
-3. **Strict Type Matching:** Leverages formatting operators (`%s` and `%d`) to cleanly merge distinct datatypes (strings and index integers) into uniform structural outputs without crashing the evaluator engine.
+```bash
+terraform init
+terraform fmt -check
+terraform validate
+terraform plan
+terraform apply
+```
 
----
+## What to Observe
 
-## Terraform Code (`lab_2.tf`)
+The plan should contain three numeric resource addresses:
+
+```text
+aws_s3_bucket.lab[0]
+aws_s3_bucket.lab[1]
+aws_s3_bucket.lab[2]
+```
+
+The value of `count.index` starts at zero and affects each bucket's name and tags.
+
+## Cleanup
+
+```bash
+terraform destroy
+```
+
+Review the destroy plan before confirming it.
+
+## Solution
+
+<details>
+<summary>Show solution</summary>
 
 ```hcl
 provider "aws" {
   region = "us-east-1"
 }
 
-# 1. Fetch current AWS Account ID dynamically
-data "aws_caller_identity" "current" {}
-
-# 2. Base input variable for naming prefix
-variable "s3_lab2" {
+variable "bucket_prefix" {
+  description = "Base prefix for the S3 bucket names"
   type        = string
-  default     = "my-project-bucket"
-  description = "Base prefix string for the S3 buckets"
+  default     = "terraform-associate-lab2"
 }
 
-# 3. Multi-bucket resource generation block
-resource "aws_s3_bucket" "lab2_buckets" {
+data "aws_caller_identity" "current" {}
+
+resource "aws_s3_bucket" "lab" {
   count = 3
 
-  # Using the format function to construct the unique name safely
-  bucket = format("%s-%s-%d", var.s3_lab2, data.aws_caller_identity.current.account_id, count.index)
+  bucket = format(
+    "%s-%s-%d",
+    var.bucket_prefix,
+    data.aws_caller_identity.current.account_id,
+    count.index
+  )
 
   tags = {
-    Identifier = "Bucket number ${count.index}"
+    Name       = "Lab 2 bucket ${count.index}"
+    Identifier = tostring(count.index)
     ManagedBy  = "Terraform"
   }
 }
+```
+
+</details>
