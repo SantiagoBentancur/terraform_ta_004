@@ -1,76 +1,143 @@
-# 🛠️ Lab 3: The Chameleon Deployment (Advanced Logic)
+# Lab 3: Conditional Infrastructure
 
 ## Objective
-Build a dynamic Terraform configuration that changes its behavior, instance size, and resource count on the fly based on a single environment switch (`is_production`).
+
+Change the number and size of EC2 instances with one Boolean input. This lab combines conditional expressions, explicit type conversion, map lookup, and `count`.
+
+## Concepts to Practice
+
+* Declaring a Boolean input variable
+* Selecting values with a conditional expression
+* Converting a Boolean with `tostring()`
+* Looking up a value in a map
+* Setting `count` conditionally
+* Using `count.index` in resource names
+
+## Prerequisites
+
+* Complete Labs 1 and 2.
+* Review Sections 10–12, 17, and 19 in the theoretical README.
+* Configure AWS credentials with permission to create and terminate EC2 instances.
+
+> **Cost Warning:** This lab creates one or two EC2 instances. Run `terraform destroy` when you finish.
 
 ## Requirements
 
-### 1. Variables
-* **`is_production`**: Create a boolean variable named `is_production` that defaults to `false`.
-* **`instance_types`**: Create a map variable named `instance_types` with two keys: `"true"` and `"false"`. If `"true"`, the value must be `"t3.small"`. If `"false"`, the value must be `"t3.micro"`.
+Create the configuration in `lab_3.tf` without opening the solution first:
 
-### 2. Data Source
-* Use the `aws_ami` data source to dynamically fetch the latest official **Amazon Linux 2023** image (using the naming pattern: `al2023-ami-*-kernel-6.1-x86_64`).
+1. Configure the AWS provider to use `us-east-1`.
+2. Declare a Boolean variable named `is_production` with a default value of `false`.
+3. Declare a `map(string)` variable named `instance_types`.
+   * Map the string key `true` to `t3.small`.
+   * Map the string key `false` to `t3.micro`.
+4. Declare an `aws_ami` data source named `amazon_linux_2023` using the same Amazon Linux 2023 owner and filters practised in Lab 1.
+5. Create an `aws_instance` resource named `environment_server`.
+6. Use a conditional expression for `count`:
+   * Create two instances in production.
+   * Create one instance otherwise.
+7. Select the instance type from `var.instance_types`.
+   * Convert the Boolean value to a string before using it as the map key.
+8. Add `Name`, `Environment`, and `ManagedBy` tags.
+   * Use `prod` or `dev` in the name according to the Boolean input.
+   * Append `count.index` to make each name identifiable.
+   * Use the full word `production` or `development` for the `Environment` tag.
 
-### 3. EC2 Resource (`aws_instance`)
-* **Dynamic Count**: Use a ternary conditional expression. If `is_production` is `true`, deploy **2 instances**. If it is `false`, deploy only **1 instance**.
-* **Dynamic Instance Type**: Look up the instance size from your `instance_types` map. *Hint: You must cast the boolean variable to a string using `tostring()` to match the map keys.*
-* **Indexed Naming**: In the `tags` block, the `Name` tag must automatically evaluate to `"server-prod-0"`, `"server-prod-1"`, or `"server-dev-0"` depending on the environment state and the current loop iteration.
+## Execution Steps
 
----
+Start with the default development configuration:
 
-## Key Architectural Features
-1. **Dynamic Scaling (`count` Conditional):** Avoids duplicating resource blocks by dynamically setting the instance count based on whether the target environment is production or development.
-2. **Boolean-to-String Map Lookup (`tostring` casting):** Bypasses the structural limitation where Terraform maps require string keys, enabling a raw boolean configuration switch to pull string values from a lookup table.
-3. **Inline Ternary Interpolation:** Evaluates structural configurations directly inside metadata strings for customized resource tracking in the AWS console.
+```bash
+terraform init
+terraform fmt -check
+terraform validate
+terraform plan
+terraform apply
+```
 
----
+Then preview the production configuration without editing the file:
 
-## Terraform Code (`lab_3.tf`)
+```bash
+terraform plan -var='is_production=true'
+```
+
+## What to Observe
+
+With `is_production = false`, Terraform manages one `t3.micro` instance:
+
+```text
+aws_instance.environment_server[0]
+```
+
+With `is_production = true`, the desired configuration contains two `t3.small` instances. The first instance retains address `[0]`, while Terraform adds address `[1]`. Terraform updates or replaces an existing instance only when the changed provider argument requires that behavior.
+
+The instance-type map is intentionally educational. A direct conditional could also select the size, but the map demonstrates `tostring()` and typed lookup.
+
+## Cleanup
+
+If you applied only the default configuration:
+
+```bash
+terraform destroy
+```
+
+If you applied with `is_production=true`, pass the same value during destroy:
+
+```bash
+terraform destroy -var='is_production=true'
+```
+
+## Solution
+
+<details>
+<summary>Show solution</summary>
 
 ```hcl
 provider "aws" {
   region = "us-east-1"
 }
 
-# 1. Flag switch to dictate infrastructure sizing
 variable "is_production" {
+  description = "Whether to use the production instance count and size"
   type        = bool
-  description = "Toggles a specific feature on or off"
   default     = false
 }
 
-# 2. Variable mapping for instance scaling sizes
 variable "instance_types" {
-  type = map(string)
+  description = "Instance type selected from the string form of is_production"
+  type        = map(string)
   default = {
     "true"  = "t3.small"
     "false" = "t3.micro"
   }
 }
 
-# 3. Dynamic Data Source targeting Amazon Linux 2023
-data "aws_ami" "amazon_linux_2" {
+data "aws_ami" "amazon_linux_2023" {
   most_recent = true
   owners      = ["amazon"]
+
   filter {
     name   = "name"
-    values = ["al2023-ami-*-kernel-6.1-x86_64"]
+    values = ["al2023-ami-2023.*-kernel-6.1-x86_64"]
+  }
+
+  filter {
+    name   = "state"
+    values = ["available"]
   }
 }
 
-# 4. Master Dynamic Resource Provisioning
-resource "aws_instance" "ec2_lab1" {
-  ami   = data.aws_ami.amazon_linux_2.id
-  
-  # Condition: Creates 2 instances if true, 1 instance if false
+resource "aws_instance" "environment_server" {
   count = var.is_production ? 2 : 1
-  
-  # Map lookup casting the boolean variable to a string representation
+
+  ami           = data.aws_ami.amazon_linux_2023.id
   instance_type = var.instance_types[tostring(var.is_production)]
-  
-  # Fully dynamic naming syntax tracking environment and sequential loop location
+
   tags = {
-    Name = "server-${var.is_production ? "prod" : "dev"}-${count.index}"
+    Name        = "server-${var.is_production ? "prod" : "dev"}-${count.index}"
+    Environment = var.is_production ? "production" : "development"
+    ManagedBy   = "Terraform"
   }
 }
+```
+
+</details>

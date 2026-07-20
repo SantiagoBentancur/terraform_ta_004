@@ -12,64 +12,65 @@
 6. [Dependency Lock File](#6-dependency-lock-file-terraformlockhcl)
 7. [Common Project Layout](#7-common-project-layout)
 8. [Configuration, State, and Remote Objects](#8-configuration-state-and-remote-objects)
-9. [Resources, Arguments, Attributes, and Interpolation](#9-resources-arguments-attributes--interpolation)
-10. [Variables](#10-variables)
+9. [Resources, Arguments, Attributes, and Interpolation](#9-resources-arguments-attributes-and-interpolation)
+10. [Variables and Output Values](#10-variables-and-output-values)
 
 ### Values and Expressions
 
-11. [Sensitive Input Variables and Outputs](#11-sensitive-input-variables-and-outputs)
-12. [Data Types](#12-data-types)
-13. [Complex Data Types](#13-complex-data-types-object-and-set)
-14. [Input Variable Validation](#14-input-variable-validation)
-15. [Local Values](#15-local-values-locals)
-16. [Essential Terraform Functions](#16-essential-terraform-functions)
-17. [Commenting in Terraform Code](#17-commenting-in-terraform-code)
-18. [The `count` Meta-Argument](#18-the-count-meta-argument)
-19. [`for_each` vs. `count`](#19-advanced-looping-for_each-vs-count)
-20. [Dynamic Blocks](#20-dynamic-blocks)
-21. [Splat Expressions](#21-splat-expressions-)
-22. [The `zipmap` Function](#22-the-zipmap-function)
+11. [Data Types](#11-data-types)
+12. [Data Sources](#12-data-sources-data-blocks)
+13. [Sensitive Input Variables and Outputs](#13-sensitive-input-variables-and-outputs)
+14. [Complex Data Types](#14-complex-data-types-object-and-set)
+15. [Input Variable Validation](#15-input-variable-validation)
+16. [Local Values](#16-local-values-locals)
+17. [Essential Terraform Functions and Expressions](#17-essential-terraform-functions-and-expressions)
+18. [Commenting in Terraform Code](#18-commenting-in-terraform-code)
+19. [The `count` Meta-Argument](#19-the-count-meta-argument)
+20. [`for_each` vs. `count`](#20-advanced-looping-for_each-vs-count)
+21. [Dynamic Blocks](#21-dynamic-blocks)
+22. [Splat Expressions](#22-splat-expressions-)
+23. [The `zipmap` Function](#23-the-zipmap-function)
 
 ### Resource Behavior and Operations
 
-23. [Resource Dependencies](#23-resource-dependencies)
-24. [The `lifecycle` Meta-Argument](#24-the-lifecycle-meta-argument)
-25. [Custom Conditions](#25-custom-conditions-precondition--postcondition)
-26. [Continuous Validation](#26-continuous-validation-check-blocks)
-27. [Provisioners](#27-provisioners-the-last-resort)
-28. [Saving and Inspecting Execution Plans](#28-saving-and-inspecting-execution-plans)
-29. [Querying Outputs](#29-querying-outputs)
-30. [Resource Targeting](#30-resource-targeting--target)
-31. [Day 2 Operations and Troubleshooting](#31-day-2-operations--troubleshooting)
-32. [Terraform Logging and Debugging](#32-terraform-logging--debugging-tf_log)
-33. [API Throttling and Performance](#33-performance-optimization-api-throttling)
+24. [Resource Dependencies](#24-resource-dependencies)
+25. [The `lifecycle` Meta-Argument](#25-the-lifecycle-meta-argument)
+26. [Custom Conditions](#26-custom-conditions-precondition--postcondition)
+27. [Check Blocks and Continuous Validation](#27-check-blocks-and-continuous-validation)
+28. [Provisioners](#28-provisioners-the-last-resort)
+29. [Saving and Inspecting Execution Plans](#29-saving-and-inspecting-execution-plans)
+30. [Querying Outputs](#30-querying-outputs)
+31. [Resource Targeting](#31-resource-targeting--target)
+32. [Day 2 Operations and Troubleshooting](#32-day-2-operations--troubleshooting)
+33. [Terraform Logging and Debugging](#33-terraform-logging--debugging-tf_log)
+34. [API Throttling and Performance](#34-performance-optimization-api-throttling)
 
 ### Architecture, Security, and State
 
-34. [Terraform Modules](#34-terraform-modules)
-35. [Terraform Security Primer](#35-terraform-security-primer)
-36. [Git for Team Collaboration](#36-git-for-team-collaboration-with-terraform)
-37. [Terraform and `.gitignore`](#37-terraform-and-gitignore)
-38. [Security Risks of State in Git](#38-security-risk-of-storing-terraform-state-in-git)
-39. [Terraform Backend](#39-terraform-backend)
-40. [S3 Backend](#40-s3-backend)
-41. [State Locking](#41-state-locking)
-42. [HashiCorp Vault Basics](#42-hashicorp-vault-basics-and-why-vault-matters)
-43. [Terraform and Vault Integration](#43-terraform-and-vault-integration)
-44. [Ephemeral Values and Write-Only Arguments](#44-ephemeral-values-and-write-only-arguments)
-45. [Terraform Workspaces](#45-terraform-workspaces-environment-management)
-46. [Terraform State Management Commands](#46-terraform-state-management-commands)
-47. [State Refactoring with `moved` Blocks](#47-state-refactoring-moved-blocks)
-48. [Terraform Import](#48-terraform-import)
-49. [Removed Blocks](#49-removed-blocks)
-50. [Cross-Project Collaboration with Remote State](#50-cross-project-collaboration-using-remote-state-data-source)
-51. [HCP Terraform and Terraform Enterprise](#51-hashicorp-cloud-platform-hcp-terraform-and-terraform-enterprise)
+35. [Terraform Modules](#35-terraform-modules)
+36. [Terraform Security Primer](#36-terraform-security-primer)
+37. [Git for Team Collaboration](#37-git-for-team-collaboration-with-terraform)
+38. [Terraform and `.gitignore`](#38-terraform-and-gitignore)
+39. [Security Risks of State in Git](#39-security-risk-of-storing-terraform-state-in-git)
+40. [Terraform Backend](#40-terraform-backend)
+41. [S3 Backend](#41-s3-backend)
+42. [State Locking](#42-state-locking)
+43. [HashiCorp Vault Basics](#43-hashicorp-vault-basics-and-why-vault-matters)
+44. [Terraform and Vault Integration](#44-terraform-and-vault-integration)
+45. [Ephemeral Values and Write-Only Arguments](#45-ephemeral-values-and-write-only-arguments)
+46. [Terraform Workspaces](#46-terraform-workspaces-environment-management)
+47. [Terraform State Management Commands](#47-terraform-state-management-commands)
+48. [State Refactoring with `moved` Blocks](#48-state-refactoring-moved-blocks)
+49. [Terraform Import](#49-terraform-import)
+50. [Removed Blocks](#50-removed-blocks)
+51. [Cross-Project Collaboration with Remote State](#51-cross-project-collaboration-using-remote-state-data-source)
+52. [HCP Terraform and Terraform Enterprise](#52-hashicorp-cloud-platform-hcp-terraform-and-terraform-enterprise)
 
 ---
 
 ## 1. Core CLI Commands
 
-* **`terraform init`**: Prepares a Terraform working directory. It initializes the backend and installs the required providers and modules in the hidden `.terraform` directory. Modules are covered in Section 34.
+* **`terraform init`**: Prepares a Terraform working directory. It initializes the backend and installs the required providers and modules in the hidden `.terraform` directory. Modules are covered in Section 35.
 * **`terraform validate`**: Checks the configuration for syntax errors and internal consistency without accessing remote state or provider APIs. It requires an initialized working directory; use `terraform init -backend=false` first when you want validation without initializing the configured backend.
 * **`terraform fmt`**: Automatically formats your Terraform configuration files into a canonical style and standard indentation.
 * **`terraform plan`**: Refreshes resource information by default, compares the configuration with state, and proposes actions. A normal plan does not make the proposed infrastructure changes.
@@ -79,9 +80,9 @@
     * *Syntax:* `<resource_type>.<local_name>`
     * *Example:* `terraform destroy -target=aws_instance.myec2`
 
-Resource addresses are introduced in Section 9, state in Section 8, and backends in Section 39.
+Resource addresses are introduced in Section 9, state in Section 8, and backends in Section 40.
 
-> **Note on Removing Resources via Code:** If you delete a resource block and apply the resulting plan, Terraform normally destroys the remote object that is still recorded in state. If Terraform must stop managing an object without destroying it, use a `removed` block with `destroy = false`, explained in Section 49.
+> **Note on Removing Resources via Code:** If you delete a resource block and apply the resulting plan, Terraform normally destroys the remote object that is still recorded in state. If Terraform must stop managing an object without destroying it, use a `removed` block with `destroy = false`, explained in Section 50.
 
 > **Note on `terraform refresh` (Deprecated):**
 > * Its original purpose was to query the cloud provider and update the `terraform.tfstate` file to match the real-world status.
@@ -146,7 +147,7 @@ The `east_logs` resource uses the default provider. The `west_logs` resource sel
 
 ### Passing an Alias to a Child Module
 
-This subsection uses modules, which are explained in detail in Section 34.
+This subsection uses modules, which are explained in detail in Section 35.
 
 Aliased provider configurations are not inherited automatically. Pass them explicitly from the root module:
 
@@ -200,7 +201,7 @@ Versioning is critical to prevent upstream updates from breaking your infrastruc
 
 The dependency lock file records the exact provider versions selected by Terraform and the checksums used to verify downloaded provider packages.
 
-It locks provider selections, not remote module versions. Module versions are selected from each module block's `version` argument or source reference. Modules are explained in Section 34.
+It locks provider selections, not remote module versions. Module versions are selected from each module block's `version` argument or source reference. Modules are explained in Section 35.
 
 Terraform creates or updates it during initialization:
 
@@ -291,7 +292,7 @@ Terraform combines all `.tf` files in one working directory into a single config
 
 > **Note:** The `backend.tf` filename is an organizational convention. Terraform reads all `.tf` files in the working directory together.
 
-This section only introduces the conventional filenames. Input variables are covered in Section 10, outputs in Section 29, state in Section 8, and backends in Section 39.
+This section only introduces the conventional filenames. Input variables and output declarations are covered in Section 10, output queries in Section 30, state in Section 8, and backends in Section 40.
 
 ---
 
@@ -306,7 +307,7 @@ Terraform operates using a **declarative** approach to infrastructure management
 
 ---
 
-## 9. Resources, Arguments, Attributes & Interpolation
+## 9. Resources, Arguments, Attributes, and Interpolation
 
 A **resource** is a primary building block in Terraform. It represents a managed object whose lifecycle Terraform can create, update, track, or destroy. This may be physical infrastructure, such as an EC2 instance, or a logical object, such as an IAM policy, DNS record, GitHub repository, or `terraform_data` resource.
 
@@ -372,7 +373,7 @@ Terraform also uses references to infer dependencies. Because `terraform_data.co
 
 ### String Interpolation
 
-String interpolation inserts an expression into a string. Input variables and local values are introduced in Sections 10 and 15.
+String interpolation inserts an expression into a string. Input variables and local values are introduced in Sections 10 and 16.
 
 * **Syntax:** `"${...}"`
 
@@ -392,7 +393,7 @@ input = terraform_data.source.output
 
 ---
 
-## 10. Variables
+## 10. Variables and Output Values
 
 Variables allow you to keep `.tf` files dynamic and reusable.
 
@@ -423,7 +424,7 @@ For local CLI runs, Terraform uses the following precedence. Sources later in th
 5. Any `*.auto.tfvars` or `*.auto.tfvars.json` files, processed in lexical filename order.
 6. The `-var` and `-var-file` CLI arguments, processed in the order provided.
 
-HCP Terraform has its own variable and variable-set behavior, discussed in Section 51.
+HCP Terraform has its own variable and variable-set behavior, discussed in Section 52.
 
 ### Best Practice for Multi-Environment Assignments
 
@@ -433,13 +434,82 @@ Declare variables without defaults when users or automation must provide them, t
 terraform apply -var-file="prod.tfvars"
 ```
 
+### Output Values
+
+An `output` block exposes a value from the root module after Terraform evaluates the configuration. Outputs are useful for displaying resource attributes, passing values to automation, and sharing values with other configurations.
+
+```hcl
+output "instance_id" {
+  description = "ID of the application server"
+  value       = aws_instance.application.id
+}
+```
+
+The output name is local to the current root module. The `value` argument can reference values such as input variables and managed-resource attributes.
+
+After an apply, Terraform displays root-module outputs. You can query them later with `terraform output`, explained in Section 30.
+
+> **Important:** An output is not automatically secret. Mark sensitive output values with `sensitive = true`, as explained in Section 13.
+
 ---
 
-## 11. Sensitive Input Variables and Outputs
+## 11. Data Types
+
+| Type Classification | Type | Description | Example |
+| :--- | :--- | :--- | :--- |
+| **Primitive** | `string` | Text characters | `"t3.micro"` |
+| **Primitive** | `number` | Numeric values | `3` or `3.14` |
+| **Primitive** | `bool` | Boolean logic | `true` or `false` |
+| **Collection** | `list` | Ordered sequence of values | `["us-east-1a", "us-east-1b"]` |
+| **Collection** | `map` | String keys with values of one consistent type | `{ env = "prod", owner = "devops" }` |
+| **Structural** | `object` | Complex grouping of distinct types | `{ name = "app", port = 80 }` |
+
+---
+
+## 12. Data Sources (`data` Blocks)
+
+Now that variables, outputs, references, and data types have been introduced, we can distinguish a data source from a managed resource.
+
+A **data source** reads information from a provider without creating or managing the queried object. For example, an `aws_ami` data source can find an existing Amazon Machine Image, and a managed EC2 resource can then use the returned AMI ID.
+
+```hcl
+data "aws_ami" "amazon_linux" {
+  most_recent = true
+  owners      = ["amazon"]
+
+  filter {
+    name   = "name"
+    values = ["al2023-ami-2023.*-kernel-6.1-x86_64"]
+  }
+}
+
+resource "aws_instance" "web" {
+  ami           = data.aws_ami.amazon_linux.id
+  instance_type = "t3.micro"
+}
+
+output "selected_ami_id" {
+  value = data.aws_ami.amazon_linux.id
+}
+```
+
+The reference syntax is:
+
+```text
+data.<DATA_SOURCE_TYPE>.<LOCAL_NAME>.<ATTRIBUTE>
+```
+
+In the example, `data.aws_ami.amazon_linux.id` reads the `id` attribute returned by the data source. Terraform normally attempts to read data sources during planning. If a data-source argument depends on a value that is not known until apply, Terraform may defer the read until the apply phase.
+
+> **Key Difference:** A `resource` block manages an object's lifecycle. A `data` block only reads information.
+
+---
+
+## 13. Sensitive Input Variables and Outputs
 
 Terraform uses the `sensitive` argument to hide a value from normal CLI and UI output.
 
-This section shows a sensitive output because secrets often flow through outputs. General output behavior and commands are covered in Section 29.
+This section builds on the output declaration introduced in Section 10. Commands for querying outputs are covered in Section 30.
 
 ```hcl
 variable "database_password" {
@@ -475,30 +545,17 @@ Requesting one sensitive output explicitly with `terraform output database_passw
 | `sensitive = true` and `ephemeral = true` | No | No |
 | Provider write-only argument | No | No |
 
-Use `nonsensitive()` only when intentionally removing the sensitive marking from data that is genuinely safe to reveal. Terraform functions are introduced in Section 16.
+Use `nonsensitive()` only when intentionally removing the sensitive marking from data that is genuinely safe to reveal. Terraform functions are introduced in Section 17.
 
 > **Note:** Ephemeral values are introduced here only for comparison. We will discuss them in detail in a future section.
 
 ---
 
-## 12. Data Types
-
-| Type Classification | Type | Description | Example |
-| :--- | :--- | :--- | :--- |
-| **Primitive** | `string` | Text characters | `"t3.micro"` |
-| **Primitive** | `number` | Numeric values | `3` or `3.14` |
-| **Primitive** | `bool` | Boolean logic | `true` or `false` |
-| **Collection** | `list` | Ordered sequence of values | `["us-east-1a", "us-east-1b"]` |
-| **Collection** | `map` | String keys with values of one consistent type | `{ env = "prod", owner = "devops" }` |
-| **Structural** | `object` | Complex grouping of distinct types | `{ name = "app", port = 80 }` |
-
----
-
-## 13. Complex Data Types (`object` and `set`)
+## 14. Complex Data Types (`object` and `set`)
 
 While primitive types (`string`, `number`, `bool`) are simple, advanced deployments require complex structural types.
 
-* **`set`:** A collection of unique, unordered values. Unlike a `list`, a set cannot contain duplicate items and does not support numeric indexing such as `[0]`. The `toset()` function converts another collection to a set. Section 19 shows how sets work with `for_each`.
+* **`set`:** A collection of unique, unordered values. Unlike a `list`, a set cannot contain duplicate items and does not support numeric indexing such as `[0]`. The `toset()` function converts another collection to a set. Section 20 shows how sets work with `for_each`.
 * **`object`:** A structural type with named attributes that may each have a different type. Its type constraint acts like a schema for the accepted attributes.
 
 ```hcl
@@ -513,9 +570,9 @@ variable "server_config" {
 
 ---
 
-## 14. Input Variable Validation
+## 15. Input Variable Validation
 
-You can enforce rules on input variable values. If a known input fails its validation rule, Terraform reports an error rather than creating a normal execution plan. The example uses `length()` and `substr()`, which are Terraform functions introduced in Section 16.
+You can enforce rules on input variable values. If a known input fails its validation rule, Terraform reports an error rather than creating a normal execution plan. The example uses `length()` and `substr()`, which are Terraform functions introduced in Section 17.
 
 ```hcl
 variable "image_id" {
@@ -530,11 +587,11 @@ variable "image_id" {
 
 ---
 
-## 15. Local Values (`locals`)
+## 16. Local Values (`locals`)
 
 A `locals` block assigns a name to an expression or value so it can be reused throughout your Terraform configuration without repeating the same logic.
 
-* Local values can hold fixed values or calculate new values from variables, resource attributes, and functions. Functions are introduced in Section 16.
+* Local values can hold fixed values or calculate new values from variables, resource attributes, and functions. Functions are introduced in Section 17.
 * They are useful for common tags, naming conventions, repeated expressions, and transformed or combined input values.
 * A local value can be referenced from any `.tf` file in the same Terraform working directory.
 
@@ -622,7 +679,7 @@ Prefer a local when it removes meaningful duplication or names a transformation.
 
 ---
 
-## 16. Essential Terraform Functions
+## 17. Essential Terraform Functions and Expressions
 
 Terraform includes built-in functions that transform and combine values. Terraform configuration cannot define its own functions, although providers can expose provider-defined functions.
 
@@ -639,9 +696,71 @@ Terraform includes built-in functions that transform and combine values. Terrafo
 * **`replace(string, search, replace)`**: Replaces matching substrings or regular-expression matches in a string.
   * *Example:* `replace("my-vpc", "-", "_")` returns `"my_vpc"`.
 
+### Type Conversion Function
+
+* **`tostring(value)`**: Converts a compatible value to a string.
+  * *Example:* `tostring(true)` returns `"true"`.
+
+### Conditional Expressions
+
+A conditional expression selects one of two values using a Boolean condition:
+
+```text
+condition ? value_if_true : value_if_false
+```
+
+```hcl
+variable "is_production" {
+  type    = bool
+  default = false
+}
+
+locals {
+  instance_type = var.is_production ? "t3.small" : "t3.micro"
+  instance_count = var.is_production ? 2 : 1
+}
+```
+
+Both result expressions should return compatible types so Terraform can determine the final value's type.
+
+### `for` Expressions
+
+A `for` expression transforms every element in a collection and produces a new collection. It does not create resource instances.
+
+Transform a list:
+
+```hcl
+locals {
+  normalized_names = [for name in var.names : lower(trimspace(name))]
+}
+```
+
+Transform a map while preserving each value:
+
+```hcl
+locals {
+  normalized_environments = {
+    for key, value in var.environments : lower(trimspace(key)) => value
+  }
+}
+```
+
+An optional `if` clause filters elements:
+
+```hcl
+locals {
+  production_servers = {
+    for key, value in var.servers : key => value
+    if value.environment == "production"
+  }
+}
+```
+
+> **Exam Distinction:** A `for` expression transforms or filters collection values. The `for_each` meta-argument, introduced in Section 20, creates multiple resource or module instances identified by stable keys.
+
 ---
 
-## 17. Commenting in Terraform Code
+## 18. Commenting in Terraform Code
 
 Clear documentation inside your `.tf` files is critical for Day 2 operations and team collaboration. Terraform supports three different syntax styles for comments:
 
@@ -667,7 +786,7 @@ Clear documentation inside your `.tf` files is critical for Day 2 operations and
 
 ---
 
-## 18. The `count` Meta-Argument
+## 19. The `count` Meta-Argument
 
 * **Purpose:** Create multiple instances of a resource from one resource block.
 * **Mechanism:** Accepts a non-negative whole number and creates that many instances, addressed by numeric indexes beginning with zero. The value must be known before Terraform performs remote operations.
@@ -681,7 +800,7 @@ resource "terraform_data" "pool" {
 
 ### Limitations of `count`
 
-Instances created with `count` use the same resource block, but their arguments can vary using `count.index`. For collections whose items need stable names or keys, `for_each`, introduced in Section 19, is usually safer.
+Instances created with `count` use the same resource block, but their arguments can vary using `count.index`. For collections whose items need stable names or keys, `for_each`, introduced in Section 20, is usually safer.
 
 ### The `count.index` Object
 
@@ -698,7 +817,7 @@ The resulting instance addresses are `terraform_data.servers[0]`, `terraform_dat
 
 ---
 
-## 19. Advanced Looping: `for_each` vs `count`
+## 20. Advanced Looping: `for_each` vs `count`
 
 Both `count` and `for_each` create multiple resource instances. Choose between them based on how each instance should be identified.
 
@@ -741,7 +860,7 @@ Use `count` when instances are nearly identical and a numeric index is meaningfu
 
 ---
 
-## 20. Dynamic Blocks
+## 21. Dynamic Blocks
 
 A `dynamic` block generates repeated nested blocks inside another supported block. This is useful when a resource needs several nested blocks of the same type, such as multiple `ingress` rules in an AWS security group.
 
@@ -750,7 +869,7 @@ A `dynamic` block generates repeated nested blocks inside another supported bloc
 * **Template:** The `content` block defines what each generated nested block should look like.
 * **Iterator:** If no custom `iterator` is declared, the temporary iterator has the same name as the generated block. Therefore, `dynamic "ingress"` uses `ingress.key` and `ingress.value`.
 
-> **Limitation:** A `dynamic` block generates nested blocks defined by the parent block's schema. It cannot generate Terraform meta-argument blocks such as `lifecycle`, which is introduced in Section 24.
+> **Limitation:** A `dynamic` block generates nested blocks defined by the parent block's schema. It cannot generate Terraform meta-argument blocks such as `lifecycle`, which is introduced in Section 25.
 
 ```hcl
 variable "web_ingress_rules" {
@@ -796,7 +915,7 @@ resource "aws_security_group" "web" {
 
 ---
 
-## 21. Splat Expressions (`[*]`)
+## 22. Splat Expressions (`[*]`)
 
 A splat expression provides a concise, shorthand syntax to extract a specific attribute from an entire list of objects. It is heavily used in `outputs.tf` files to extract things like IP addresses from a cluster of servers.
 
@@ -813,7 +932,7 @@ Both expressions return a clean list of public IPs: `["203.0.113.1", "203.0.113.
 
 ---
 
-## 22. The `zipmap` Function
+## 23. The `zipmap` Function
 
 The `zipmap` function takes two separate lists (one for keys, one for values) and "zips" them together into a single, cohesive `map`.
 * **Syntax:** `zipmap(list_of_keys, list_of_values)`
@@ -841,7 +960,7 @@ output "iam_user_arns" {
 }
 ```
 **The resulting output in the terminal will look cleanly mapped like this:**
-```json
+```text
 {
   "developer-0" = "arn:aws:iam::123456789:user/developer-0"
   "developer-1" = "arn:aws:iam::123456789:user/developer-1"
@@ -851,11 +970,11 @@ output "iam_user_arns" {
 
 ---
 
-## 23. Resource Dependencies
+## 24. Resource Dependencies
 
 Terraform builds a dependency graph (DAG) to determine the exact order in which to create or destroy resources.
 
-* **Implicit Dependency (The Standard):** Terraform automatically infers dependencies when one resource references the attribute of another. You should rely on this 95% of the time.
+* **Implicit Dependency (Preferred):** Terraform automatically infers dependencies when one resource references an attribute of another. Prefer an implicit dependency whenever a direct reference can express the relationship.
 * **Explicit Dependency (`depends_on`):** Used when a resource relies on another resource functioning, but does *not* reference its data directly in the code (e.g., an EC2 instance needing an IAM Role Policy attached before it runs a script).
 ```hcl
 resource "aws_instance" "app_server" {
@@ -866,16 +985,16 @@ resource "aws_instance" "app_server" {
 
 ---
 
-## 24. The `lifecycle` Meta-Argument
+## 25. The `lifecycle` Meta-Argument
 
 By default, Terraform expects to have absolute, strict control over a resource. If a change requires a resource to be replaced, Terraform will destroy the old resource *first*, and then create the new one.
 
-The `lifecycle` nested block allows you to override these default operational behaviors to protect critical infrastructure, ensure zero downtime, or ignore external modifications.
+The `lifecycle` nested block allows you to adjust these default operational behaviors to protect critical infrastructure, reduce downtime, or ignore selected external modifications.
 
 ### `create_before_destroy`
 * **Default Behavior:** Destroy old, then create new. This causes downtime.
 * **Lifecycle Override:** Create new, update state, then destroy old.
-* **Use Case:** Zero-downtime deployments (e.g., updating an EC2 instance or a Load Balancer).
+* **Use Case:** Reducing downtime during replacement (e.g., updating an EC2 instance or a load balancer).
 ```hcl
 resource "aws_instance" "web" {
   lifecycle {
@@ -883,6 +1002,8 @@ resource "aws_instance" "web" {
   }
 }
 ```
+
+> **Important:** `create_before_destroy` does not guarantee zero downtime. The provider must be able to create both objects temporarily, and unique-name or capacity constraints can prevent this strategy.
 
 ### `prevent_destroy`
 * **Behavior:** Acts as a hard safety lock. If Terraform generates a plan that attempts to destroy this resource, the plan will fail.
@@ -907,15 +1028,25 @@ resource "aws_autoscaling_group" "app_asg" {
 
 ---
 
-## 25. Custom Conditions (`precondition` & `postcondition`)
+## 26. Custom Conditions (`precondition` & `postcondition`)
 
-Also located strictly inside the `lifecycle` block, these allow you to validate assumptions about your resources and data sources.
+`precondition` and `postcondition` blocks are lifecycle conditions that validate assumptions about resources, data sources, and supported ephemeral resources.
 
 * **`precondition`:** Evaluated *before* the resource is created/updated. It ensures that the inputs or surrounding environment meet strict requirements.
 * **`postcondition`:** Evaluated *after* the resource is created/updated. It guarantees that the resulting infrastructure actually looks the way you expect.
 ```hcl
+data "aws_ami" "selected" {
+  most_recent = true
+  owners      = ["amazon"]
+
+  filter {
+    name   = "architecture"
+    values = ["x86_64"]
+  }
+}
+
 resource "aws_instance" "secure_server" {
-  ami           = "ami-123456"
+  ami           = data.aws_ami.selected.id
   instance_type = "t3.micro"
 
   lifecycle {
@@ -929,16 +1060,18 @@ resource "aws_instance" "secure_server" {
 
 ---
 
-## 26. Continuous Validation (`check` blocks)
+## 27. Check Blocks and Continuous Validation
 
 Introduced in Terraform 1.5, `check` blocks perform validation *outside* the normal resource lifecycle.
 
 * **Behavior:** A `check` block runs during every `terraform plan` or `terraform apply`. If the check fails, it outputs a **warning**, but it does *not* block or break the deployment.
 * **Use Case:** Monitoring the health of infrastructure (e.g., checking if an API endpoint is returning a 200 HTTP status code).
 
+> **HCP Terraform Note:** A local `check` block runs during plan and apply. HCP Terraform's continuous validation capability can also evaluate checks automatically outside normal infrastructure changes.
+
 ---
 
-## 27. Provisioners (The "Last Resort")
+## 28. Provisioners (The "Last Resort")
 
 Terraform is a **declarative** tool (you describe the end state, and Terraform figures out how to build it). Provisioners break this rule by being **imperative** (executing a step-by-step script).
 
@@ -960,7 +1093,7 @@ resource "aws_instance" "web" {
 ### `remote-exec`
 * **Behavior:** Logs into the newly created infrastructure over the network and executes commands directly on the machine.
 * **Use Case:** Installing software, starting services, or bootstrapping a node.
-* **Requirement:** It **must** be paired with a `connection` block so Terraform knows how to authenticate.
+* **Requirement:** It **must** be paired with connection settings so Terraform knows how to authenticate.
 ```hcl
 resource "aws_instance" "web" {
   # ... other config ...
@@ -975,12 +1108,12 @@ resource "aws_instance" "web" {
 ```
 
 ### The `connection` Block
-Nested inside the resource, this block provides the network credentials (SSH or WinRM) required by `remote-exec`.
+A `connection` block provides the network settings and credentials (SSH or WinRM) required by `remote-exec`. It can be placed in the resource to provide defaults for its provisioners or inside an individual provisioner.
 ```hcl
   connection {
     type        = "ssh"
     user        = "ubuntu"
-    private_key = file("~/.ssh/id_rsa") # Reads the local private key file
+    private_key = file(pathexpand("~/.ssh/id_rsa"))
     host        = self.public_ip
   }
 ```
@@ -1020,42 +1153,45 @@ resource "aws_instance" "web" {
 
 ---
 
-## 28. Saving and Inspecting Execution Plans
+## 29. Saving and Inspecting Execution Plans
 
-In a production CI/CD pipeline, you never run `terraform apply` blindly. You must guarantee that the plan evaluated in the CI stage is the *exact* plan executed in the deployment stage.
+In a production CI/CD pipeline, a saved plan lets the apply stage use the same set of proposed actions that was reviewed during the planning stage.
 
-* **`terraform plan -out=<filename>.plan`**: Saves the proposed execution plan to a secure, binary file.
+* **`terraform plan -out=<filename>.plan`**: Saves the proposed execution plan to a binary file.
 * **`terraform apply <filename>.plan`**: Executes the saved plan directly. It does not require another approval prompt because the actions were previously captured in the saved plan. The plan file is not a state lock and may contain sensitive data.
+
+> **Important:** Binary plan files are not automatically encrypted. Store them as sensitive artifacts. A saved plan can also become stale and fail if the state changes before it is applied.
 
 ### Reading the Binary Plan File
 Because the `.plan` file is binary, you cannot open it in a text editor.
 * **`terraform show <filename>.plan`**: Translates the binary plan into human-readable text in the terminal.
 * **`terraform show -json <filename>.plan`**: Outputs the plan in strict JSON format.
-  * *Pro-Tip:* This is heavily used in automation. You can pipe this JSON into tools like `jq` to parse specific data, or send it to security scanners (like Checkov or OPA) to automatically reject the plan if it violates security policies.
+  * This is commonly used in automation. You can pipe the JSON into tools like `jq` or pass it to a security scanner for policy evaluation.
 
 ---
 
-## 29. Querying Outputs
+## 30. Querying Outputs
 
-* **`terraform output`**: Reads the `terraform.tfstate` file and prints the values of any defined `output` blocks. This is incredibly useful for querying infrastructure data (like a generated Database Endpoint or EC2 Public IP) without having to run a full `terraform plan` or API refresh.
+Section 10 explains how to declare output values. The commands below retrieve root-module outputs from the latest state snapshot.
+
+* **`terraform output`**: Reads root-module output values from the latest state snapshot through the configured backend. It is useful for querying infrastructure data without running a full `terraform plan` or provider refresh.
 
 ---
 
-## 30. Resource Targeting (`-target`)
+## 31. Resource Targeting (`-target`)
 
 * **`terraform plan -target=<resource_address>`**
 * **`terraform apply -target=<resource_address>`**
 
-**Why use this in production?**
-HashiCorp explicitly warns that targeting is an **anti-pattern** for routine operations because it breaks Terraform's holistic view of the infrastructure. However, in production operations, it is a necessary "break-glass" emergency tool used for:
+HashiCorp recommends `-target` only for exceptional situations, such as recovering from an earlier error or when Terraform explicitly suggests it. It is not a routine deployment, performance, or troubleshooting strategy.
 
-1. **Emergency Hotfixes:** If a security vulnerability requires an immediate port closure on a Security Group, you cannot wait 15 minutes for Terraform to evaluate 2,000 other resources. You target the exact SG, apply it in seconds, and fix the vulnerability.
-2. **Recovering from a Partial Failure:** Targeting can help complete or repair part of an operation after an earlier apply failed. It cannot resolve a genuine dependency cycle in the configuration; that cycle must be corrected in the code.
-3. **Isolating a Broken Resource:** If a minor DNS record is failing and blocking your entire CI/CD pipeline from deploying critical database updates, you can target the database to ensure the rollout continues while you fix the DNS bug.
+Terraform includes the selected object and anything it depends on, but the resulting plan may not represent every change required by the complete configuration. After a targeted operation, run a normal `terraform plan` to confirm that no additional changes remain.
+
+> **Exam Tip:** `-target` narrows Terraform's focus; it does not create a permanent architectural boundary and cannot fix a dependency cycle.
 
 ---
 
-## 31. Day 2 Operations & Troubleshooting
+## 32. Day 2 Operations & Troubleshooting
 
 ### Forcing Resource Recreation
 Sometimes a resource becomes corrupted in the cloud (e.g., someone manually SSH'd in and broke a configuration), but your Terraform code hasn't changed. Because the desired state matches the code, `terraform plan` won't detect the issue.
@@ -1072,7 +1208,7 @@ Terraform determines the exact order to create, modify, or destroy resources by 
 
 ---
 
-## 32. Terraform Logging & Debugging (`TF_LOG`)
+## 33. Terraform Logging & Debugging (`TF_LOG`)
 
 When Terraform fails and the standard console output doesn't give you enough information, you can enable detailed execution logging using environment variables.
 
@@ -1084,19 +1220,21 @@ When Terraform fails and the standard console output doesn't give you enough inf
 
 ---
 
-## 33. Performance Optimization: API Throttling
+## 34. Performance Optimization: API Throttling
 
-When managing massive enterprise infrastructure, a standard `terraform plan` must query the cloud provider for the real-time status of every single resource in your state file. This can trigger **Slow API Call Throttling** (e.g., AWS temporarily blocking Terraform for making too many requests per second).
+When managing large configurations, refresh and apply operations may send enough concurrent requests to trigger provider API rate limits. Providers commonly implement retry and backoff behavior, but configuration design and request concurrency still matter.
 
 **Best Practices to Resolve Throttling:**
-1. **State Decomposition (The Permanent Fix):** Never put an entire company's infrastructure in one `main.tf` file. Break the monolith into smaller, isolated projects/workspaces (e.g., `vpc-network`, `database-tier`, `frontend-apps`).
-2. **Resource Targeting:** Use `-target` as a temporary band-aid to bypass the need to refresh the entire architecture.
-3. **Skip the Refresh:** Run `terraform plan -refresh=false`. This skips the normal refresh of managed resources before planning. Terraform may still make provider API calls, such as when reading data sources.
-   * *Warning:* This is incredibly fast, but highly dangerous if someone manually changed infrastructure in the AWS Console, as Terraform will be blind to that "configuration drift" during the plan phase.
+1. **Decompose large configurations:** Split infrastructure along architectural and ownership boundaries into separate root configurations and state files (e.g., `vpc-network`, `database-tier`, and `frontend-apps`). Splitting one root module into several `.tf` files does not split its state.
+2. **Control concurrency when necessary:** The global `-parallelism=<n>` option can reduce simultaneous operations when a provider or API cannot handle Terraform's default concurrency. This may make the run slower.
+3. **Review provider-specific retry settings:** Some providers expose retry or rate-limit settings. Use their documented configuration rather than adding arbitrary delays.
+4. **Skip refresh only for an exceptional reason:** `terraform plan -refresh=false` skips the normal refresh of managed resources before planning, although data sources and other operations may still call provider APIs.
+
+> **Warning:** With `-refresh=false`, Terraform may miss out-of-band changes and produce an incomplete or incorrect plan. It is not a routine performance optimization.
 
 ---
 
-## 34. Terraform Modules
+## 35. Terraform Modules
 
 According to the official HashiCorp documentation, **a module is a container for multiple resources that are used together.** Modules are the primary way to package and reuse resource configurations with Terraform.
 
@@ -1111,22 +1249,20 @@ When using modules, you must understand how data enters and exits the isolated m
 * **Outputs** act as the **Returns**, flowing from the Child Module back *out* to the Root Module.
 
 ```text
-+-----------------------------------+             +----------------------------------+
-|           ROOT MODULE             |             |       CHILD MODULE (./ec2)       |
-|                                   |  VARIABLES  |                                  |
-|  module "my_server" {             | ===========>|  variable "env_type" {}          |
-|    source   = "./ec2"             |  (Inputs)   |                                  |
-|    env_type = "prod"              |             |  resource "aws_instance" "app" { |
-|  }                                |             |    tags = { Env = var.env_type } |
-|                                   |   OUTPUTS   |  }                               |
-|  resource "aws_dns" "record" {    | <===========|                                  |
-|    ip = module.my_server.node_ip  |  (Returns)  |  output "node_ip" {              |
-|  }                                |             |    value = aws_instance.app.ip   |
-+-----------------------------------+             +----------------------------------+
++----------------------------+   input variables   +----------------------------+
+| Root module                | -------------------> | Child module (./ec2)       |
+|                            |                      |                            |
+| module "my_server" {       |                      | variable "env_type" {}     |
+|   source   = "./ec2"       |                      |                            |
+|   env_type = "prod"        |                      | resource "aws_instance"   |
+| }                          |                      |   "app" { ... }            |
+|                            |   output values      |                            |
+| module.my_server.node_ip   | <------------------- | output "node_ip" { ... }   |
++----------------------------+                      +----------------------------+
 ```
 
 ### Passing Variables into a Module
-When you build a custom child module, you declare `variables` to avoid hardcoding values. When the Root Module calls that child module, it must supply values for those variables directly inside the `module` block.
+When you build a custom child module, you declare input variables to make the module configurable. The calling module supplies values for required variables directly inside the `module` block; variables with defaults are optional.
 
 **1. Inside the Child Module (`./modules/vpc/variables.tf`):**
 ```hcl
@@ -1191,22 +1327,24 @@ When sourcing modules from the public Terraform Registry:
 ### Standard Module Structure (HashiCorp Best Practices)
 If you are building custom modules, follow HashiCorp's Standard Module Structure. Separate your code into at least these files:
 1. **`main.tf`**: Contains the primary resource blocks.
-2. **`variables.tf`**: Defines the input parameters (no hardcoded values).
+2. **`variables.tf`**: Defines input variables and any appropriate defaults.
 3. **`outputs.tf`**: Defines the data returned to the Root Module.
 4. **`README.md`**: Recommended documentation, especially for reusable or published modules.
 
 ### The Provider Rule (Exam Trap)
-**Never** include a `provider` block (like AWS credentials or regions) inside a Child Module. Provider configurations should be defined in the Root Module. Child modules automatically inherit default provider configurations, while aliased provider configurations must be passed explicitly through the module's `providers` argument. Each child module should also declare its own provider requirements in `required_providers`.
+Reusable child modules must not contain their own `provider` configuration blocks. Provider configurations should be defined in the root module. Child modules automatically inherit default provider configurations, while aliased configurations must be passed explicitly through the module's `providers` argument. Each child module should still declare its provider requirements in `required_providers`.
 
 ### Requirements for Publishing to the Terraform Registry
-If you want to share your custom module publicly, HashiCorp enforces strict rules:
+To publish a module in the public Terraform Registry, the repository must meet these requirements:
 1. **GitHub Repository:** The code must be hosted on a public GitHub repository.
 2. **Strict Naming Convention:** The repository *must* be named exactly: `terraform-<PROVIDER>-<NAME>` *(Example: `terraform-aws-webserver`)*.
-3. **Release Tags:** You must use Git release tags (e.g., `v1.0.0`) so users can pin specific versions.
+3. **Repository Description:** The GitHub repository must have a short description.
+4. **Standard Module Structure:** The repository must follow Terraform's standard module structure.
+5. **Semantic Version Tags:** At least one release tag must use `x.y.z` syntax, optionally prefixed with `v` (e.g., `v1.0.0`).
 
 ---
 
-## 35. Terraform Security Primer
+## 36. Terraform Security Primer
 
 Terraform often handles cloud credentials, database passwords, API tokens, and other sensitive information. Security must cover the configuration, execution environment, saved plans, logs, and state—not only the `.tf` files.
 
@@ -1227,13 +1365,13 @@ Preferred sources include:
 * Environment variables supplied by a secure CI/CD platform
 * Cloud-native identity systems, such as AWS IAM roles
 * HashiCorp Vault or a cloud secrets manager
-* Ephemeral values and provider-supported write-only arguments
+* Ephemeral values and provider-supported write-only arguments, explained in Section 45
 
 > **Important:** Adding a secret file to `.gitignore` prevents Git from tracking it, but does not stop Terraform from storing its value in state.
 
 ---
 
-## 36. Git for Team Collaboration with Terraform
+## 37. Git for Team Collaboration with Terraform
 
 Git allows multiple engineers to collaborate on the same Terraform codebase safely.
 
@@ -1261,7 +1399,9 @@ git checkout -b feature/add-network
 terraform fmt
 terraform validate
 terraform plan
-git add .
+git status
+git add main.tf variables.tf outputs.tf
+git diff --staged
 git commit -m "Add network module"
 git push origin feature/add-network
 ```
@@ -1270,7 +1410,7 @@ The team can then review the pull request before the Terraform change is applied
 
 ---
 
-## 37. Terraform and `.gitignore`
+## 38. Terraform and `.gitignore`
 
 A `.gitignore` file prevents Git from tracking local Terraform files that should stay out of the repository.
 
@@ -1306,7 +1446,7 @@ terraform.rc
 
 ---
 
-## 38. Security Risk of Storing Terraform State in Git
+## 39. Security Risk of Storing Terraform State in Git
 
 The Terraform state file is sensitive and should not be stored in Git.
 
@@ -1325,7 +1465,7 @@ Even if your `.tf` files do not show a password directly, Terraform state may st
 
 ---
 
-## 39. Terraform Backend
+## 40. Terraform Backend
 
 A **backend** defines where Terraform stores its state and how Terraform performs state operations.
 
@@ -1363,7 +1503,7 @@ Terraform will initialize the backend and may ask whether you want to migrate ex
 
 ---
 
-## 40. S3 Backend
+## 41. S3 Backend
 
 The S3 backend stores Terraform state in an AWS S3 bucket.
 
@@ -1384,13 +1524,14 @@ The S3 backend stores Terraform state in an AWS S3 bucket.
 ### Small S3 Backend Example
 ```hcl
 terraform {
-  required_version = ">= 1.5.0"
+  required_version = ">= 1.10.0"
 
   backend "s3" {
-    bucket  = "company-terraform-state-dev"
-    key     = "checkpoint-2/network/terraform.tfstate"
-    region  = "us-east-1"
-    encrypt = true
+    bucket       = "company-terraform-state-dev"
+    key          = "checkpoint-2/network/terraform.tfstate"
+    region       = "us-east-1"
+    encrypt      = true
+    use_lockfile = true
   }
 }
 ```
@@ -1401,14 +1542,16 @@ The `key` is the path inside the bucket where the state file will be stored.
 s3://company-terraform-state-dev/checkpoint-2/network/terraform.tfstate
 ```
 
+`use_lockfile = true` enables the S3 backend's native state locking. Locking is not enabled automatically just because state is stored in S3. DynamoDB-based S3 locking exists for older configurations but is deprecated.
+
 ### Backend Bootstrap Note
 The S3 bucket used for Terraform state usually must exist before Terraform can use it as a backend. Many teams create the backend bucket manually once, or create it in a separate bootstrap Terraform project.
 
 ---
 
-## 41. State Locking
+## 42. State Locking
 
-State locking prevents two people or systems from modifying the same Terraform state at the same time.
+State locking prevents two people or systems from modifying the same Terraform state at the same time. Terraform locks state automatically when the selected backend supports locking and locking is enabled where required.
 
 ### Why Locking Matters
 Imagine two engineers both run `terraform apply` against the same infrastructure:
@@ -1436,7 +1579,7 @@ terraform force-unlock <LOCK_ID>
 
 ---
 
-## 42. HashiCorp Vault Basics and Why Vault Matters
+## 43. HashiCorp Vault Basics and Why Vault Matters
 
 HashiCorp Vault is a secrets-management system. It centralizes access to secrets and can provide encryption, access policies, auditing, leases, revocation, and dynamically generated credentials.
 
@@ -1473,7 +1616,7 @@ In production, Vault should use persistent storage, TLS, restricted policies, an
 
 ---
 
-## 43. Terraform and Vault Integration
+## 44. Terraform and Vault Integration
 
 The HashiCorp Vault provider lets Terraform read, configure, and request secrets from Vault.
 
@@ -1519,7 +1662,7 @@ Vault secrets engines can issue short-lived AWS, Azure, Google Cloud, or databas
 
 ---
 
-## 44. Ephemeral Values and Write-Only Arguments
+## 45. Ephemeral Values and Write-Only Arguments
 
 Terraform 1.10 introduced ephemeral values, and Terraform 1.11 introduced write-only arguments for managed resources.
 
@@ -1591,11 +1734,13 @@ To rotate the password, increment `local.db_password_version`. Terraform then ge
 
 ---
 
-## 45. Terraform Workspaces (Environment Management)
+## 46. Terraform Workspaces (Environment Management)
 
 While modules help you separate and reuse your *code*, **Workspaces help you separate your *state* (`terraform.tfstate`)**.
 
-Workspaces allow you to use the exact same directory of Terraform code while maintaining completely isolated, independent state files. This is ideal for managing multiple environments (Dev, QA, Prod) without duplicating your `.tf` files.
+CLI workspaces let you use the same working directory and configuration with separate state instances. They are useful for temporary or parallel copies of the same infrastructure, such as feature-development environments.
+
+They are not strong isolation boundaries for long-lived Development, QA, and Production environments because all workspaces in a configuration use the same backend and normally share its credentials and access controls.
 
 ### How do they work?
 By default, you are always working in a workspace named `default`. When you create a new workspace (e.g., `dev`), Terraform creates a blank, isolated state under the hood.
@@ -1621,15 +1766,15 @@ resource "aws_instance" "server" {
 ```
 
 ### Official Workspace Limitations
-HashiCorp recommends using Workspaces to test identical architectures in parallel development environments. However, for environments with strict security or compliance requirements (where Production must be completely isolated from Development), **HashiCorp strongly recommends using separate physical directories and code repositories** rather than relying solely on workspaces.
+HashiCorp recommends workspaces for parallel instances of the same configuration. For deployments that require separate credentials and access controls, use separate root configurations and backends. Those configurations may live in separate directories or repositories and can call shared modules to avoid duplicating reusable code.
 
 ---
 
-## 46. Terraform State Management Commands
+## 47. Terraform State Management Commands
 
 Terraform state commands let you inspect or modify Terraform's state file.
 
-> **Important:** These commands modify Terraform's memory of infrastructure. They do not always modify the real cloud resource.
+> **Important:** These commands inspect or modify Terraform's record of the relationship between resource addresses and real infrastructure objects. They do not always modify the real cloud resource.
 
 ### `terraform state list`
 Shows all resources currently tracked in state.
@@ -1683,7 +1828,7 @@ Real-world example:
 
 ---
 
-## 47. State Refactoring (`moved` blocks)
+## 48. State Refactoring (`moved` blocks)
 
 If you rename a resource in your `.tf` file (e.g., changing `aws_instance.web` to `aws_instance.frontend`), Terraform will think you deleted the old one and want to create a brand new one, causing accidental deletions.
 
@@ -1698,7 +1843,7 @@ moved {
 
 ---
 
-## 48. Terraform Import
+## 49. Terraform Import
 
 `terraform import` brings an existing real-world resource under Terraform management.
 
@@ -1759,7 +1904,7 @@ terraform apply
 
 ---
 
-## 49. Removed Blocks
+## 50. Removed Blocks
 
 A `removed` block records that Terraform should stop managing a resource. Unlike deleting a resource block by itself, it lets you explicitly choose whether Terraform destroys the real infrastructure or only removes the resource from state.
 
@@ -1816,7 +1961,7 @@ After the removal is applied:
 
 ---
 
-## 50. Cross-Project Collaboration Using Remote State Data Source
+## 51. Cross-Project Collaboration Using Remote State Data Source
 
 Sometimes one Terraform project needs values created by another Terraform project.
 
@@ -1861,13 +2006,17 @@ resource "aws_instance" "app" {
 }
 ```
 
-> **Important:** Remote state sharing exposes all root module outputs from the other project. Only output values that other projects really need.
+> **Important:** The data source exposes only root-module outputs to Terraform expressions, but the credentials used to retrieve those outputs must normally be able to read the entire state snapshot. That snapshot can contain sensitive data that was never declared as an output.
+
+Prefer publishing shared information through provider-specific resources, such as DNS records, parameter stores, or configuration stores, when practical. For HCP Terraform or Terraform Enterprise, prefer the `tfe_outputs` data source when only workspace outputs are required because it does not require full state access.
 
 ---
 
-## 51. HashiCorp Cloud Platform (HCP) Terraform and Terraform Enterprise
+## 52. HashiCorp Cloud Platform (HCP) Terraform and Terraform Enterprise
 
-**HCP Terraform** is HashiCorp's managed Software as a Service (SaaS) platform for running Terraform collaboratively. **Terraform Enterprise** provides similar collaboration and governance capabilities but runs in infrastructure controlled by the customer.
+**HCP Terraform** is the managed Software as a Service (SaaS) platform for running Terraform collaboratively. **Terraform Enterprise** provides similar collaboration and governance capabilities but runs in infrastructure controlled by the customer.
+
+> **Naming Note:** Course and exam material commonly uses **HCP Terraform** and **Terraform Enterprise**. Current product pages may use the names **IBM HCP Terraform** and **IBM Terraform Enterprise** following IBM's acquisition of HashiCorp. The hosted-versus-self-managed distinction remains the important concept.
 
 Both products build on the Terraform CLI workflow by adding centralized state, remote execution, access control, run history, policy enforcement, and integrations.
 
@@ -2014,11 +2163,9 @@ Policies are grouped into **policy sets**, which can be assigned to selected wor
 
 > **Exam Tip:** Sentinel does not provision infrastructure. It is a governance checkpoint in the run workflow between the plan and apply stages. Sentinel availability and policy-set limits depend on the HCP Terraform edition.
 
-> **Current-Platform Nuance:** In the traditional Sentinel model, a hard-mandatory failure cannot be overridden. Newer policy-evaluation workflows can support a separately configured policy-set override for authorized users, and that setting takes precedence over an individual policy's enforcement level.
-
 ### Key Exam Distinctions
 
-* HCP Terraform is hosted by HashiCorp; Terraform Enterprise is customer-managed.
+* HCP Terraform is the hosted SaaS offering; Terraform Enterprise is customer-managed.
 * A workspace combines configuration, variables, state, settings, and run history for one infrastructure collection.
 * Remote execution and remote state storage are related but separate capabilities.
 * A speculative plan previews changes and cannot apply them.
@@ -2038,29 +2185,33 @@ Welcome to the practical lab series for mastering Infrastructure as Code (IaC) w
 
 ## Core Foundations
 
-### [Lab 1: The Informant Server (Dynamic Image & Mapping)](#)
-* **Objective:** Deploy a foundational EC2 instance that dynamically queries the AWS marketplace for the latest OS image.
-* **Concepts Covered:** `provider` configuration, `aws_ami` dynamic data sources, `map(string)` variables, dynamic resource tagging, and `output` extraction.
+### [Lab 0: Terraform Workflow and Variable Precedence](practic/lab_0/lab_0.md)
+* **Objective:** Practise Terraform's file structure, CLI workflow, variable precedence, outputs, and state without creating cloud infrastructure.
+* **Concepts Covered:** `terraform_data`, `.tf` file organization, `terraform.tfvars`, custom `-var-file` values, `TF_VAR_*`, `-var`, outputs, and basic state inspection.
 
-### [Lab 2: Multi-S3 Bucket Deployment (Unique Naming Syntax)](#)
-* **Objective:** Create multiple globally unique S3 buckets using dynamic AWS account data and indexed naming.
-* **Concepts Covered:** `aws_caller_identity` data source, `count`, `count.index`, `format()`, S3 bucket naming, and dynamic tags.
+### [Lab 1: Dynamic AMI Discovery](practic/lab_1/lab_1.md)
+* **Objective:** Deploy one EC2 instance using an Amazon Linux 2023 AMI discovered dynamically from AWS.
+* **Concepts Covered:** Provider configuration, a string input variable, the `aws_ami` data source, resource references, tags, and output values.
 
-### [Lab 3: The Chameleon Deployment (Advanced Logic)](#)
-* **Objective:** Build infrastructure that changes instance size and resource count based on a single environment switch.
-* **Concepts Covered:** Boolean variables, conditional expressions, map lookups, dynamic AMI data sources, and conditional `count`.
+### [Lab 2: Multiple S3 Buckets with `count`](practic/lab_2/lab_2.md)
+* **Objective:** Create three globally named S3 buckets from one resource block.
+* **Concepts Covered:** `aws_caller_identity`, `count`, `count.index`, `format()`, numeric resource addresses, and dynamic tags.
+
+### [Lab 3: Conditional Infrastructure](practic/lab_3/lab_3.md)
+* **Objective:** Change the number and size of EC2 instances with one Boolean input.
+* **Concepts Covered:** Conditional expressions, `tostring()`, map lookup, dynamic AMI discovery, and conditional `count`.
 
 ---
 
 ## Advanced Data Structures and Looping
 
-### [Lab 4: The Index-Based Network (The `count` Approach)](#)
-* **Objective:** Deploy network resources from a map while using `count`, so you can understand the index-based limitations directly.
-* **Concepts Covered:** Overcoming map restrictions using collection functions (`length()`, `keys()`, `values()`), list extraction, and array indexing.
+### [Lab 4: Indexing a Map with `count`](practic/lab_4/lab_4.md)
+* **Objective:** Create one VPC for each object in a map while deliberately using numeric identities.
+* **Concepts Covered:** `map(object(...))`, `length()`, `keys()`, `values()`, lexicographical map ordering, and numeric resource addresses.
 
-### [Lab 5: The Automated Network Topology (`for_each` Approach)](#)
-* **Objective:** Deploy isolated VPCs dynamically based on complex nested configurations while automatically sanitizing messy human input errors.
-* **Concepts Covered:** `for_each` loops, `locals`, string manipulation (`lower()`, `trimspace()`, `replace()`), and nested `map(object({}))` structural types.
+### [Lab 5: Stable VPC Identities with `for_each`](practic/lab_5/lab_5.md)
+* **Objective:** Normalize input keys and create VPC instances identified by stable string keys.
+* **Concepts Covered:** `for` expressions, local values, `for_each`, `each.key`, `each.value`, string normalization, and stable resource addresses.
 
 ### [Lab 6: The Blast Radius (`count` vs. `for_each`)](#)
 * **Objective:** Deploy comparable infrastructure with `count` and `for_each`, then remove a middle-list item to compare shifting numeric indexes with stable string keys.
