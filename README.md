@@ -4,6 +4,7 @@
 
 ### Foundations and Configuration
 
+- [How Terraform Works: A First Run](#how-terraform-works-a-first-run)
 - [Core CLI Commands](#core-cli-commands)
 - [Providers](#providers)
 - [Terraform Settings Block](#terraform-settings-block-terraform-)
@@ -88,9 +89,106 @@
 
 ---
 
+## How Terraform Works: A First Run
+
+Terraform is a **declarative** infrastructure-as-code tool. You describe the result you want in `.tf` configuration files rather than writing every API operation required to produce that result. Terraform then determines which actions are necessary to make the managed objects match the configuration.
+
+The initial workflow is:
+
+```text
+Write configuration → terraform init → terraform plan → terraform apply
+     desired state        prepare          preview            execute
+```
+
+After initialization, the everyday cycle is usually:
+
+```text
+Edit configuration → terraform plan → terraform apply
+```
+
+Run `terraform init` again when initialization is required, such as after changing provider requirements, module sources, or backend configuration.
+
+### A Small Local Example
+
+The following configuration uses the `hashicorp/local` provider to create a text file. It runs entirely on your computer, so it does not require a cloud account or credentials.
+
+Create a `.tf` file containing:
+
+```hcl
+terraform {
+  required_providers {
+    local = {
+      source  = "hashicorp/local"
+      version = "~> 2.0"
+    }
+  }
+}
+
+resource "local_file" "hello" {
+  filename = "hello.txt"
+  content  = "Hello from Terraform!"
+}
+```
+
+This configuration declares the **desired state**: a file named `hello.txt` with specific content. It does not contain procedural instructions such as “open a file, write a line, and close it.”
+
+### Prepare the Working Directory
+
+```bash
+terraform init
+```
+
+Terraform reads the provider requirement and installs `hashicorp/local`. It also creates or updates:
+
+* **`.terraform/`**: Local working data, including installed providers and modules. Do not commit this directory.
+* **`.terraform.lock.hcl`**: The exact provider selection and checksums used to verify the downloaded package. Normally commit this file.
+
+Initialization prepares Terraform, but it does not create `hello.txt`.
+
+### Preview the Proposed Changes
+
+```bash
+terraform plan
+```
+
+Terraform reads the configuration, examines the available state and managed objects, and calculates the actions required to reach the desired state. The first plan should report that one `local_file` resource will be added.
+
+A plan is a preview. A normal `terraform plan` does not execute the proposed resource changes.
+
+### Apply the Changes
+
+```bash
+terraform apply
+```
+
+When executed without a saved plan, `terraform apply` creates a new plan, asks for approval, and then asks the provider to perform the approved operations. In this example, the local provider creates `hello.txt`. When using the default local backend, Terraform also creates or updates `terraform.tfstate` to associate `local_file.hello` with the file it now manages.
+
+Now change the desired content:
+
+```hcl
+content = "Terraform updated this file!"
+```
+
+The next `terraform plan` detects the difference and proposes the required change. After approval, `terraform apply` performs it and records the resulting state. This is the central Terraform workflow: declare the desired result, review Terraform's proposed reconciliation, and apply it.
+
+### Clean Up the Example
+
+When you finish the exercise, preview and remove the object managed by this configuration:
+
+```bash
+terraform destroy
+```
+
+`terraform destroy` creates a destruction plan and asks for approval. After approval, the local provider deletes `hello.txt`, and Terraform records in state that the resource is no longer managed.
+
+The following sections explain each part of this workflow in more detail, beginning with the core commands and then the providers, lock file, configuration, and state that make the workflow possible.
+
+---
+
 ## Core CLI Commands
 
 * **`terraform init`**: Prepares a Terraform working directory. It initializes the backend and installs the required providers and modules in the hidden `.terraform` directory. Modules are covered in [Terraform Modules](#terraform-modules).
+  * **`terraform init -upgrade`**: Reconsiders provider and module selections and chooses the newest versions allowed by the configured constraints. For providers, it updates `.terraform.lock.hcl`; review the lock-file diff and the next plan before committing an upgrade. See [Dependency Lock File](#dependency-lock-file-terraformlockhcl).
 * **`terraform validate`**: Checks the configuration for syntax errors and internal consistency without accessing remote state or provider APIs. It requires an initialized working directory; use `terraform init -backend=false` first when you want validation without initializing the configured backend.
 * **`terraform fmt`**: Automatically formats your Terraform configuration files into a canonical style and standard indentation.
 * **`terraform plan`**: Refreshes resource information by default, compares the configuration with state, and proposes actions. A normal plan does not make the proposed infrastructure changes.
@@ -116,6 +214,53 @@ Resource addresses are introduced in [Resources, Arguments, Attributes, and Stri
 
 A provider is a plugin that lets Terraform interact with an external API. A resource block declares an object of a given type, such as `aws_instance`, with a local name such as `myec2`. Resource blocks and addresses are explained in [Resources, Arguments, Attributes, and String Templates](#resources-arguments-attributes-and-string-templates).
 
+### Terraform Registry and Provider Source Addresses
+
+The public [Terraform Registry provider directory](https://registry.terraform.io/browse/providers) is the main catalog for publicly available providers and their versioned documentation. A provider source address identifies where Terraform should obtain a provider and has this format:
+
+```text
+[hostname/]namespace/type
+```
+
+For example, `hashicorp/aws` is shorthand for the complete source address `registry.terraform.io/hashicorp/aws`:
+
+| Address part | Example | Purpose |
+| :--- | :--- | :--- |
+| **Hostname** | `registry.terraform.io` | Registry that distributes the provider. Terraform assumes the public Registry when this part is omitted. |
+| **Namespace** | `hashicorp` | Organization or publisher responsible for the provider. |
+| **Type** | `aws` | Provider's name; it normally also becomes the local name used by the module. |
+
+Organizations are not limited to the public Registry. A source such as `terraform.example.com/examplecorp/ourcloud` can refer to a provider in a private or internal registry. Terraform can also be configured to install providers through filesystem or network mirrors. See HashiCorp's [provider requirements](https://developer.hashicorp.com/terraform/language/providers/requirements) and [provider installation](https://developer.hashicorp.com/terraform/cli/config/config-file#provider-installation) documentation.
+
+During `terraform init`, Terraform reads the provider requirements from the configuration, considers the selected versions in `.terraform.lock.hcl`, and installs the required provider plugins from the configured registry, mirror, or cache. The version displayed on a Registry documentation page is not necessarily the version installed in a project; the configuration's version constraints and the dependency lock file control that selection.
+
+![Annotated anatomy of an AWS provider page in the Terraform Registry](assets/terraform-registry-provider-anatomy.png)
+
+### Declaring and Configuring a Provider
+
+A module declares a provider's source and acceptable versions in `required_providers`. A separate `provider` block configures one instance of that provider:
+
+```hcl
+terraform {
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 6.0"
+    }
+  }
+}
+
+provider "aws" {
+  region = "us-east-1"
+}
+
+resource "aws_s3_bucket" "example" {
+  bucket_prefix = "provider-example-"
+}
+```
+
+In this example, `required_providers` tells Terraform which plugin to install, while `provider "aws"` supplies configuration such as the AWS region. The `aws_` prefix in `aws_s3_bucket` associates that resource type with the local provider name `aws`.
+
 ### Provider Tiers
 
 | Type | Description |
@@ -125,7 +270,6 @@ A provider is a plugin that lets Terraform interact with an external API. A reso
 | **Community** | Owned and maintained by individual contributors. |
 | **Archived** | An Official or Partner provider that is no longer maintained. |
 
-* **Namespaces** help identify the organization or publisher responsible for the integration.
 * Terraform configurations should declare every provider's source address in `required_providers`. This block is introduced in [Terraform Settings Block](#terraform-settings-block-terraform-).
 
 ### AWS Provider Source Credentials
@@ -254,7 +398,13 @@ Review the resulting lock-file diff and test the provider upgrade before committ
 
 Terraform can use multiple configurations of the same provider. Common use cases include deploying to multiple AWS regions or using different AWS accounts and roles.
 
-One provider configuration should normally remain unaliased as the default. Additional configurations use the `alias` argument.
+Within one module, a provider local name can have at most one default configuration: the `provider` block without an `alias`. You cannot declare two independent unaliased configurations for the same local provider name. Every additional configuration must have its own unique `alias`.
+
+One configuration should normally remain unaliased so that it acts as the default. Resources that need another configuration select an alias through the `provider` meta-argument.
+
+### Why Keep a Default Configuration?
+
+If all configurations for a provider have aliases, there is no explicitly configured default. Terraform then treats an empty provider configuration as the default.
 
 ```hcl
 provider "aws" {
@@ -280,7 +430,7 @@ The `east_logs` resource uses the default provider. The `west_logs` resource sel
 
 ### Passing an Alias to a Child Module
 
-This subsection uses modules, which are explained in detail in [Terraform Modules](#terraform-modules).
+The `provider` argument selects an alias for an individual resource. A child module requires a different mechanism: the parent passes the selected provider configuration through the module's `providers` map. Modules are explained in detail in [Terraform Modules](#terraform-modules).
 
 Aliased provider configurations are not inherited automatically. Pass them explicitly from the root module:
 
@@ -294,9 +444,7 @@ module "west_app" {
 }
 ```
 
-The child module must declare its own provider requirement. Reusable child modules should receive provider configurations from their caller rather than defining their own `provider` blocks.
-
-> **Common Trap:** If every provider block has an alias, Terraform creates an implied empty default configuration. A resource without an explicit `provider` argument may then fail because it tries to use that empty configuration.
+The child module must declare the provider in its own `required_providers` block. However, the root module should define the provider configuration and pass it to the child through the `providers` map. If the child refers to aliased provider names internally, it must also declare them using `configuration_aliases`. See HashiCorp's documentation for [provider aliases](https://developer.hashicorp.com/terraform/language/block/provider#alias) and [passing providers to child modules](https://developer.hashicorp.com/terraform/language/meta-arguments/providers).
 
 ---
 
@@ -309,9 +457,10 @@ Terraform combines all `.tf` files in one working directory into a single config
 * **`outputs.tf`**: Declares values that Terraform exposes after an apply, such as generated public IP addresses.
 * **`backend.tf`**: Optionally keeps remote backend configuration in a dedicated file.
 * **`terraform.tfvars`**: Supplies values for declared input variables and is loaded automatically.
-* **`terraform.tfstate`**: The default local state file, stored as JSON. Do not edit it manually.
 
 > **Note:** The `backend.tf` filename is an organizational convention. Terraform reads all `.tf` files in the working directory together.
+
+Terraform creates `terraform.tfstate` automatically when the default local backend records state. It is runtime data rather than a configuration file that you create or organize manually. Do not edit it by hand. Remote backends store state in their configured remote location instead of relying on this local state file.
 
 This section only introduces the conventional filenames. Input variables and output declarations are covered in [Variables and Output Values](#variables-and-output-values), output queries in [Querying Outputs](#querying-outputs), state in [Configuration, State, and Remote Objects](#configuration-state-and-remote-objects), and backends in [Terraform Backend](#terraform-backend).
 
