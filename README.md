@@ -212,7 +212,7 @@ Resource addresses are introduced in [Resources, Arguments, Attributes, and Stri
 
 ## Providers
 
-A provider is a plugin that lets Terraform interact with an external API. A resource block declares an object of a given type, such as `aws_instance`, with a local name such as `myec2`. Resource blocks and addresses are explained in [Resources, Arguments, Attributes, and String Templates](#resources-arguments-attributes-and-string-templates).
+A provider is a plugin that lets Terraform interact with an external API.
 
 ### Terraform Registry and Provider Source Addresses
 
@@ -238,7 +238,14 @@ During `terraform init`, Terraform reads the provider requirements from the conf
 
 ### Declaring and Configuring a Provider
 
-A module declares a provider's source and acceptable versions in `required_providers`. A separate `provider` block configures one instance of that provider:
+Provider **requirements** and provider **configurations** have different purposes:
+
+* **`required_providers`** declares the provider's local name, source address, and acceptable versions.
+* **`provider`** configures an instance of that provider with settings such as a region, endpoint, or authentication behavior.
+
+An explicit `required_providers` declaration is the recommended practice for every external provider, but Terraform can sometimes operate without one. If Terraform encounters the local provider name `aws` without an explicit source address, it uses the implied address `registry.terraform.io/hashicorp/aws`. This inference exists for backward compatibility and should not be relied on in modern configurations: it assumes the `hashicorp` namespace, cannot identify a community or private provider, and does not document an intentional version constraint.
+
+The `provider` block is also not always required. Terraform can use an implied empty default configuration when a provider needs no explicit settings or can obtain them from external sources. In the following AWS example, the block is present because it explicitly sets the region:
 
 ```hcl
 terraform {
@@ -259,7 +266,7 @@ resource "aws_s3_bucket" "example" {
 }
 ```
 
-In this example, `required_providers` tells Terraform which plugin to install, while `provider "aws"` supplies configuration such as the AWS region. The `aws_` prefix in `aws_s3_bucket` associates that resource type with the local provider name `aws`.
+In this example, `required_providers` explicitly tells Terraform to install `hashicorp/aws` at a version allowed by `~> 6.0`, while `provider "aws"` configures its AWS region. The `aws_` prefix in `aws_s3_bucket` associates that resource type with the local provider name `aws`.
 
 ### Provider Tiers
 
@@ -270,7 +277,7 @@ In this example, `required_providers` tells Terraform which plugin to install, w
 | **Community** | Owned and maintained by individual contributors. |
 | **Archived** | An Official or Partner provider that is no longer maintained. |
 
-* Terraform configurations should declare every provider's source address in `required_providers`. This block is introduced in [Terraform Settings Block](#terraform-settings-block-terraform-).
+The syntax and other uses of `required_providers` are covered in [Terraform Settings Block](#terraform-settings-block-terraform-).
 
 ### AWS Provider Source Credentials
 
@@ -286,8 +293,12 @@ When authenticating the AWS provider, you have several options:
 
 The `terraform` block configures Terraform itself rather than a remote infrastructure object.
 
+This section introduces its two most common settings. The `terraform` block supports additional options that are covered later where they become relevant.
+
 * **`required_version`**: Defines the Terraform CLI version or range of versions allowed to execute the configuration (e.g., `required_version = ">= 1.5.0"`).
 * **`required_providers`**: Declares provider local names, source addresses, and allowed version constraints.
+
+> **Important:** The `terraform` block accepts only constant values. Its arguments cannot reference input variables, local values, resources, data sources, or other named values, and they cannot call Terraform functions. Terraform must evaluate these settings before it can process the rest of the configuration.
 
 ```hcl
 terraform {
@@ -305,10 +316,49 @@ terraform {
 
 ## Terraform Versioning
 
-Versioning is critical to prevent upstream updates from breaking your infrastructure:
+Terraform CLI and provider plugins are separate software components with independent versions. Version constraints help a team use versions that are compatible with the configuration.
 
-* **Provider Versioning:** Constrain provider versions inside the `required_providers` block. For example, `~> 4.0` allows versions from `4.0.0` up to, but not including, `5.0.0`. Use `~> 4.0.0` to allow patch updates only.
-* **CLI Versioning:** Restrict the Terraform binary version using the `required_version` argument inside the `terraform` block. Tools like `tfenv` are commonly used to manage local binary versions.
+### Provider Version Constraints
+
+Provider constraints belong inside `required_providers`. They tell Terraform which provider releases are acceptable; `.terraform.lock.hcl` records the exact version currently selected from that allowed range.
+
+```hcl
+terraform {
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 6.0"
+    }
+  }
+}
+```
+
+Common constraint forms include:
+
+| Constraint | Meaning | Examples allowed | Examples rejected |
+| :--- | :--- | :--- | :--- |
+| `= 6.2.0` or `6.2.0` | Exactly one version | `6.2.0` | `6.2.1`, `6.3.0` |
+| `>= 6.2.0` | The specified version or any newer version | `6.2.0`, `7.0.0` | `6.1.0` |
+| `>= 6.2.0, < 7.0.0` | Every comma-separated condition must be satisfied | `6.2.0`, `6.9.0` | `6.1.0`, `7.0.0` |
+| `~> 6.2.0` | Allow only newer patch releases in the `6.2` series | `6.2.1`, `6.2.9` | `6.3.0`, `7.0.0` |
+| `~> 6.2` | Allow newer minor releases while remaining below `7.0.0` | `6.3.0`, `6.10.0` | `7.0.0` |
+| `!= 6.2.3` | Exclude one specific version | `6.2.2`, `6.2.4` | `6.2.3` |
+
+The comparison operators `>`, `>=`, `<`, and `<=` can be combined to express other ranges. Root modules commonly use a bounded constraint such as `~>` to avoid automatically accepting a new major provider version. Reusable child modules generally declare only the minimum compatible version so that they do not impose unnecessary upper bounds on their callers.
+
+### Terraform CLI Version
+
+`required_version` does **not** install or select Terraform. It checks the version of the Terraform CLI executable currently running the configuration:
+
+```hcl
+terraform {
+  required_version = ">= 1.10.0, < 2.0.0"
+}
+```
+
+With this constraint, Terraform CLI `1.10.0` or a later `1.x` release can run the configuration, but `1.9.8` and `2.0.0` cannot. If the installed CLI does not satisfy the constraint, Terraform stops with an error before planning or applying changes.
+
+The same constraint operators shown above work with `required_version`. Version managers such as `tfenv` can install and switch Terraform CLI versions, but `required_version` itself only validates the active executable.
 
 ---
 
