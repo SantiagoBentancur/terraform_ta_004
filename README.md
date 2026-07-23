@@ -792,10 +792,12 @@ variable "image_id" {
 
   validation {
     condition     = length(var.image_id) > 4 && substr(var.image_id, 0, 4) == "ami-"
-    error_message = "The image_id value must be a valid AMI ID, starting with \"ami-\"."
+    error_message = "The image_id value must start with \"ami-\" and include an identifier after the prefix."
   }
 }
 ```
+
+This introductory condition validates the required prefix, but it does not prove that the value identifies an AMI that exists in AWS. The provider verifies the identifier when Terraform uses it in an AWS operation.
 
 ---
 
@@ -1167,9 +1169,9 @@ Use `count` when instances are nearly identical and a numeric index is meaningfu
 
 ## Splat Expressions (`[*]`)
 
-A splat expression provides a concise, shorthand syntax to extract a specific attribute from an entire list of objects. It is heavily used in `outputs.tf` files to extract things like IP addresses from a cluster of servers.
+A splat expression provides concise syntax for extracting the same attribute from every element of a list or tuple of objects. For example, it can collect the public IP addresses of resource instances created with `count`.
 
-Instead of writing a full `for` loop to iterate over the list, the `[*]` operator grabs the data instantly.
+Instead of writing a full `for` expression, you can use the `[*]` operator:
 
 * **The Long Way (using a `for` loop):** `[for server in aws_instance.web : server.public_ip]`
 * **The Splat Way:** `aws_instance.web[*].public_ip`
@@ -1177,7 +1179,7 @@ Instead of writing a full `for` loop to iterate over the list, the `[*]` operato
 Both expressions return a clean list of public IPs: `["203.0.113.1", "203.0.113.2"]`.
 
 > **Critical Splat Limitation:** Splat expressions only work natively on **Lists** and **Tuples**.
-> * If you built your servers using `count` (which outputs a list), `aws_instance.web[*].id` works perfectly.
+> * If you built your servers using `count` (which produces a tuple of resource instances), `aws_instance.web[*].id` works.
 > * If you built your servers using `for_each` (which outputs a map), the splat will fail. You must convert the map values to a list first: `values(aws_instance.web)[*].id`.
 
 ---
@@ -1273,9 +1275,9 @@ resource "aws_instance" "web" {
 > **Important:** `create_before_destroy` does not guarantee zero downtime. The provider must be able to create both objects temporarily, and unique-name or capacity constraints can prevent this strategy.
 
 ### `prevent_destroy`
-* **Behavior:** Acts as a hard safety lock. If Terraform generates a plan that attempts to destroy this resource, the plan will fail.
-* **Use Case:** Protecting mission-critical resources (e.g., Production RDS Databases, S3 state files).
-* **Warning:** This does not prevent destruction if you manually delete the entire `resource` block from your code.
+* **Behavior:** Rejects a Terraform plan that would destroy the resource while this lifecycle rule remains in its configuration.
+* **Use Case:** Protecting mission-critical resources (e.g., production RDS databases or S3 state buckets).
+* **Warning:** This does not protect against deletion outside Terraform. It also does not prevent destruction if you remove the entire `resource` block, because the lifecycle rule is then removed with it.
 
 ### `ignore_changes`
 * **Behavior:** Instructs Terraform to ignore specific resource attributes during the planning phase if the real-world state differs from the `.tf` code.
@@ -1511,15 +1513,15 @@ Terraform includes the selected object and anything it depends on, but the resul
 ## Resource Replacement and Dependency Visualization
 
 ### Forcing Resource Recreation
-Sometimes a resource becomes corrupted in the cloud (e.g., someone manually SSH'd in and broke a configuration), but your Terraform code hasn't changed. Because the desired state matches the code, `terraform plan` won't detect the issue.
-* **`terraform apply -replace="<resource_address>"`**: Forces Terraform to destroy and recreate a specific resource during the apply phase, ignoring the lack of code changes.
+Sometimes a resource needs replacement even though its provider-managed attributes still match the configuration. For example, Terraform cannot normally detect software changes made manually inside an EC2 operating system because those details are not part of the EC2 resource schema.
+* **`terraform apply -replace="<resource_address>"`**: Instructs Terraform to replace a specific resource during the apply, even when no configuration change requires replacement. The lifecycle and provider behavior determine whether Terraform creates the replacement before or after destroying the existing object.
 * *Note:* This modern command officially replaces the deprecated `terraform taint` command.
 * *Example:* `terraform apply -replace="aws_instance.web_server[0]"`
 
 ### Visualizing Dependencies (The DAG)
 Terraform determines the exact order to create, modify, or destroy resources by building a mathematical Directed Acyclic Graph (DAG) under the hood.
 * **`terraform graph`**: Outputs this visual dependency graph in the raw DOT language format.
-* **Generating an Architecture Image:** You can pipe the raw DOT output into rendering tools like **Graphviz** to create a physical, visual map of your deployment dependencies.
+* **Generating an Architecture Image:** You can pipe the raw DOT output into a rendering tool such as **Graphviz** to create a visual representation of the dependencies.
   * *Command:* `terraform graph | dot -Tsvg > graph.svg`
   * *(Note: This requires the Graphviz `dot` CLI tool to be installed on your local OS).*
 
@@ -1987,9 +1989,9 @@ State locking prevents two people or systems from modifying the same Terraform s
 Imagine two engineers both run `terraform apply` against the same infrastructure:
 * Engineer A creates a subnet.
 * Engineer B modifies the VPC at the same time.
-* Both commands try to update the same state file.
+* Both commands try to update the same state.
 
-Without locking, the state file could become inconsistent or corrupted.
+Without locking, the shared state could become inconsistent or corrupted.
 
 ### What Happens During a Lock?
 When Terraform starts an operation that may modify state, it tries to acquire a lock:
@@ -2042,7 +2044,7 @@ terraform {
 }
 ```
 
-The `key` is the path inside the bucket where the state file will be stored.
+The `key` is the path of the S3 object where the state will be stored.
 
 ```text
 s3://company-terraform-state-dev/checkpoint-2/network/terraform.tfstate
@@ -2110,7 +2112,7 @@ HashiCorp recommends workspaces for parallel instances of the same configuration
 
 ## Terraform State Management Commands
 
-Terraform state commands let you inspect or modify Terraform's state file.
+Terraform state commands let you inspect or modify Terraform's state through the configured backend.
 
 > **Important:** These commands inspect or modify Terraform's record of the relationship between resource addresses and real infrastructure objects. They do not always modify the real cloud resource.
 
@@ -2153,7 +2155,7 @@ Real-world example:
 > **Warning:** After `state rm`, Terraform no longer manages that resource. If the resource block still exists in code, Terraform may plan to create a new one.
 
 ### `terraform state mv`
-Moves a resource address inside the state file.
+Moves a resource address in Terraform state.
 
 ```bash
 terraform state mv aws_instance.old_name aws_instance.new_name
@@ -2170,8 +2172,8 @@ Real-world example:
 
 If you rename a resource in your `.tf` file (e.g., changing `aws_instance.web` to `aws_instance.frontend`), Terraform will think you deleted the old one and want to create a brand new one, causing accidental deletions.
 
-* **The Fix:** The `moved` block safely tells the state file that the resource simply changed addresses, preventing destruction.
-* **Workflow:** Write the `moved` block, run `terraform apply`, and retain or remove the block later according to your compatibility needs.
+* **The Fix:** The `moved` block tells Terraform that the object changed addresses, preventing replacement caused only by the address change.
+* **Workflow:** Write the `moved` block and run `terraform apply`. Retain historical `moved` blocks in reusable modules so configurations upgrading from older versions still have a valid migration path. Removing a `moved` block is a breaking change for any state that has not yet recorded the move.
 ```hcl
 moved {
   from = aws_instance.web
@@ -2425,7 +2427,7 @@ terraform plan
 
 ### Important State Warning
 
-Reading a secret from Vault does not automatically make Terraform state secret-free. If a Vault value is assigned to a normal resource argument, Terraform may store that value in state. Continue protecting the backend, and prefer ephemeral values or write-only arguments when the destination resource supports them.
+A normal Vault data source records its retrieved secret data in Terraform state, even if no other resource uses it. Passing that value to a normal resource argument can create additional copies in state. Protect the backend and any saved plan files, and use provider-supported ephemeral resources or write-only arguments when the workflow supports them.
 
 ### Dynamic Cloud Credentials
 
@@ -2479,9 +2481,11 @@ In the VCS workflow, the plan is associated with the exact Git commit that produ
 
 ### Execution Modes
 
-* **Remote execution:** HCP Terraform runs Terraform in a temporary remote environment. This is the default and provides a consistent execution environment.
+* **Remote execution:** HCP Terraform runs Terraform in a temporary remote environment, providing a consistent execution environment. Many organizations use this as their standard mode.
 * **Local execution:** Terraform runs on the user's machine or CI worker while HCP Terraform stores the remote state.
 * **Agent execution:** HCP Terraform agents execute runs inside private, isolated, or on-premises networks that the hosted runners cannot reach.
+
+A workspace can inherit its execution mode from its project or explicitly select a supported mode. Therefore, the workspace setting may appear as **Project Default** rather than always being set directly to Remote.
 
 ### Air-Gapped Terraform Enterprise
 
@@ -2586,7 +2590,7 @@ Policies are grouped into **policy sets**, which can be assigned to selected wor
 | :--- | :--- |
 | **Advisory** | Reports the failure but allows the run to continue |
 | **Soft mandatory** | Blocks the run unless an authorized user overrides it; the override is recorded |
-| **Hard mandatory** | Blocks the run and has no normal per-policy override |
+| **Hard mandatory** | Blocks the run. It is not normally overridden at the individual-policy level, although an administrator can explicitly configure the containing policy set to permit authorized overrides. |
 
 > **Exam Tip:** Sentinel does not provision infrastructure. It is a governance checkpoint in the run workflow between the plan and apply stages. Sentinel availability and policy-set limits depend on the HCP Terraform edition.
 
@@ -2613,7 +2617,7 @@ Welcome to the practical lab series for mastering Infrastructure as Code (IaC) w
 ## Core Foundations
 
 ### [Lab 0: Terraform Workflow and Variable Precedence](practic/lab_0/lab_0.md)
-* **Objective:** Practise Terraform's file structure, CLI workflow, variable precedence, outputs, and state without creating cloud infrastructure.
+* **Objective:** Practice Terraform's file structure, CLI workflow, variable precedence, outputs, and state without creating cloud infrastructure.
 * **Concepts Covered:** `terraform_data`, `.tf` file organization, `terraform.tfvars`, custom `-var-file` values, `TF_VAR_*`, `-var`, outputs, and basic state inspection.
 
 ### [Lab 1: Dynamic AMI Discovery](practic/lab_1/lab_1.md)
