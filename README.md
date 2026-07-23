@@ -12,14 +12,15 @@
 - [Dependency Lock File](#dependency-lock-file-terraformlockhcl)
 - [Multiple Provider Configurations](#multiple-provider-configurations)
 - [Common Project Layout and Comments](#common-project-layout-and-comments)
+- [Resource Blocks and References](#resource-blocks-and-references)
 - [Configuration, State, and Remote Objects](#configuration-state-and-remote-objects)
-- [Resources, Arguments, Attributes, and String Templates](#resources-arguments-attributes-and-string-templates)
 
 ### Values, Types, and Expressions
 
 - [Data Types](#data-types)
 - [Complex Data Types](#complex-data-types-object-and-set)
 - [Variables and Output Values](#variables-and-output-values)
+- [String Templates and Interpolation](#string-templates-and-interpolation)
 - [Input Variable Validation](#input-variable-validation)
 - [Local Values](#local-values-locals)
 - [Data Sources](#data-sources-data-blocks)
@@ -199,7 +200,7 @@ The following sections explain each part of this workflow in more detail, beginn
     * *Syntax:* `<resource_type>.<local_name>`
     * *Example:* `terraform destroy -target=aws_instance.myec2`
 
-Resource addresses are introduced in [Resources, Arguments, Attributes, and String Templates](#resources-arguments-attributes-and-string-templates), state in [Configuration, State, and Remote Objects](#configuration-state-and-remote-objects), and backends in [Terraform Backend](#terraform-backend).
+Resource addresses are introduced in [Resource Blocks and References](#resource-blocks-and-references), state in [Configuration, State, and Remote Objects](#configuration-state-and-remote-objects), and backends in [Terraform Backend](#terraform-backend).
 
 > **Note on Removing Resources via Code:** If you delete a resource block and apply the resulting plan, Terraform normally destroys the remote object that is still recorded in state. If Terraform must stop managing an object without destroying it, use a `removed` block with `destroy = false`, explained in [Removed Blocks](#removed-blocks).
 
@@ -233,6 +234,8 @@ For example, `hashicorp/aws` is shorthand for the complete source address `regis
 Organizations are not limited to the public Registry. A source such as `terraform.example.com/examplecorp/ourcloud` can refer to a provider in a private or internal registry. Terraform can also be configured to install providers through filesystem or network mirrors. See HashiCorp's [provider requirements](https://developer.hashicorp.com/terraform/language/providers/requirements) and [provider installation](https://developer.hashicorp.com/terraform/cli/config/config-file#provider-installation) documentation.
 
 During `terraform init`, Terraform reads the provider requirements from the configuration, considers the selected versions in `.terraform.lock.hcl`, and installs the required provider plugins from the configured registry, mirror, or cache. The version displayed on a Registry documentation page is not necessarily the version installed in a project; the configuration's version constraints and the dependency lock file control that selection.
+
+> **Exam Tip — Provider Installation Path:** For a normally initialized working directory, Terraform stores installed provider packages under `.terraform/providers`, organized by source address, version, and target platform. An AWS provider path looks similar to `.terraform/providers/registry.terraform.io/hashicorp/aws/<VERSION>/<OS_ARCH>/`. Terraform manages this directory automatically; do not edit or commit it. A configured shared plugin cache or a custom Terraform data directory can change where the underlying files are stored.
 
 ![Annotated anatomy of an AWS provider page in the Terraform Registry](assets/terraform-registry-provider-anatomy.png)
 
@@ -448,7 +451,7 @@ Review the resulting lock-file diff and test the provider upgrade before committ
 
 Terraform can use multiple configurations of the same provider. Common use cases include deploying to multiple AWS regions or using different AWS accounts and roles.
 
-Within one module, a provider local name can have at most one default configuration: the `provider` block without an `alias`. You cannot declare two independent unaliased configurations for the same local provider name. Every additional configuration must have its own unique `alias`.
+For a given provider local name, Terraform can have at most one default configuration: the `provider` block without an `alias`. You cannot declare two independent unaliased configurations for the same local provider name. Every additional configuration must have its own unique `alias`.
 
 One configuration should normally remain unaliased so that it acts as the default. Resources that need another configuration select an alias through the `provider` meta-argument.
 
@@ -478,24 +481,6 @@ resource "aws_s3_bucket" "west_logs" {
 
 The `east_logs` resource uses the default provider. The `west_logs` resource selects the aliased provider using the `provider` meta-argument.
 
-### Passing an Alias to a Child Module
-
-The `provider` argument selects an alias for an individual resource. A child module requires a different mechanism: the parent passes the selected provider configuration through the module's `providers` map. Modules are explained in detail in [Terraform Modules](#terraform-modules).
-
-Aliased provider configurations are not inherited automatically. Pass them explicitly from the root module:
-
-```hcl
-module "west_app" {
-  source = "./modules/app"
-
-  providers = {
-    aws = aws.west
-  }
-}
-```
-
-The child module must declare the provider in its own `required_providers` block. However, the root module should define the provider configuration and pass it to the child through the `providers` map. If the child refers to aliased provider names internally, it must also declare them using `configuration_aliases`. See HashiCorp's documentation for [provider aliases](https://developer.hashicorp.com/terraform/language/block/provider#alias) and [passing providers to child modules](https://developer.hashicorp.com/terraform/language/meta-arguments/providers).
-
 ---
 
 ## Common Project Layout and Comments
@@ -512,11 +497,65 @@ Terraform combines all `.tf` files in one working directory into a single config
 
 Terraform creates `terraform.tfstate` automatically when the default local backend records state. It is runtime data rather than a configuration file that you create or organize manually. Do not edit it by hand. Remote backends store state in their configured remote location instead of relying on this local state file.
 
-This section only introduces the conventional filenames. Input variables and output declarations are covered in [Variables and Output Values](#variables-and-output-values), output queries in [Querying Outputs](#querying-outputs), state in [Configuration, State, and Remote Objects](#configuration-state-and-remote-objects), and backends in [Terraform Backend](#terraform-backend).
+<details>
+<summary><strong>Expand the complete multi-file example</strong></summary>
+
+The following structure separates a small configuration by responsibility:
+
+```text
+example/
+├── main.tf
+├── variables.tf
+├── outputs.tf
+├── terraform.tfvars
+└── versions.tf
+```
+
+```hcl
+# variables.tf
+variable "environment" {
+  description = "Environment represented by this configuration"
+  type        = string
+  default     = "development"
+}
+```
+
+```hcl
+# main.tf
+resource "terraform_data" "example" {
+  input = var.environment
+}
+```
+
+```hcl
+# outputs.tf
+output "environment" {
+  description = "Environment stored by the terraform_data resource"
+  value       = terraform_data.example.output
+}
+```
+
+```hcl
+# terraform.tfvars
+environment = "staging"
+```
+
+```hcl
+# versions.tf
+terraform {
+  required_version = ">= 1.10.0"
+}
+```
+
+Terraform combines the `.tf` files into one configuration. `terraform.tfvars` supplies the value for the input declared in `variables.tf`; `main.tf` uses that input; and `outputs.tf` exposes the resource result. None of these filenames determines execution order—the reference from `terraform_data.example` to `var.environment` and the output reference to the resource describe the relationships.
+
+</details>
+
+For a complete runnable exercise using this layout, see [Lab 0: Terraform Workflow and Variable Precedence](practic/lab_0/lab_0.md).
 
 ### Comments in Terraform Code
 
-Clear documentation inside your `.tf` files is critical for Day 2 operations and team collaboration. Terraform supports three different syntax styles for comments:
+Terraform supports three different syntax styles for comments:
 
 1. **The `#` Symbol (Single-Line):** This is the idiomatic style recommended by HashiCorp.
    ```hcl
@@ -540,18 +579,7 @@ Clear documentation inside your `.tf` files is critical for Day 2 operations and
 
 ---
 
-## Configuration, State, and Remote Objects
-
-Terraform operates using a **declarative** approach to infrastructure management.
-
-* **Desired State:** The infrastructure behavior and settings described by your `.tf` configuration.
-* **Terraform State:** Terraform's stored record that maps resource addresses in the configuration to remote objects and caches their known attributes. State is not the remote infrastructure itself.
-* **Remote Objects:** The infrastructure that actually exists in a provider system such as AWS.
-* **The Reconciliation Process:** By default, `terraform plan` refreshes information about tracked remote objects, compares that information and prior state with the configuration, and proposes actions. `terraform apply` executes an approved plan and then records the resulting state.
-
----
-
-## Resources, Arguments, Attributes, and String Templates
+## Resource Blocks and References
 
 A **resource** is a primary building block in Terraform. It represents a managed object whose lifecycle Terraform can create, update, track, or destroy. This may be physical infrastructure, such as an EC2 instance, or a logical object, such as an IAM policy, DNS record, GitHub repository, or `terraform_data` resource.
 
@@ -580,8 +608,15 @@ resource "aws_s3_bucket" "web" {
 In this example:
 * **`resource`**: Tells Terraform you are declaring infrastructure to manage.
 * **`aws_s3_bucket`**: The resource type. It comes from the AWS provider and tells Terraform what kind of object to create.
-* **`web`**: The local resource name. This is how you identify this resource inside your Terraform code.
+* **`web`**: The local name used to distinguish this block from other resources of the same type.
+* **`aws_s3_bucket.web`**: The resource address used to identify and reference it in the Terraform configuration.
 * **Arguments:** Values you configure inside the block, such as `bucket_prefix` and `tags`.
+
+The general resource-address syntax is:
+
+```text
+<RESOURCE_TYPE>.<LOCAL_NAME>
+```
 
 ### Arguments vs. Attributes
 
@@ -592,7 +627,7 @@ In this example:
 
 Some values are both configurable arguments and readable attributes, depending on the resource type. Provider documentation tells you which fields are supported.
 
-### Cross-Reference Attributes
+### Resource Attribute References
 
 You can reference the attribute of one resource and use it in another resource.
 
@@ -615,25 +650,19 @@ Here, `terraform_data.source.output` means:
 
 Terraform also uses references to infer dependencies. Because `terraform_data.copy` reads an attribute from `terraform_data.source`, Terraform handles `source` before `copy`.
 
-### String Templates and Interpolation
+---
 
-String templates insert expressions into strings. Input variables and local values are introduced in [Variables and Output Values](#variables-and-output-values) and [Local Values](#local-values-locals).
+## Configuration, State, and Remote Objects
 
-* **Syntax:** `"${...}"`
+Terraform uses a **declarative** approach: you describe the desired result instead of writing a sequence of API instructions.
 
-```hcl
-resource "aws_s3_bucket" "logs" {
-  bucket_prefix = "app-logs-${var.environment}-"
-}
-```
+* **Configuration:** Describes the desired infrastructure and behavior in `.tf` files.
+* **Terraform State:** Maps resource addresses to real objects and stores metadata and known attributes. Terraform requires this mapping to know, for example, which EC2 instance belongs to `aws_instance.web`. State is Terraform's record—it is not the infrastructure itself.
+* **Remote Objects:** The infrastructure that actually exists in a provider system such as AWS.
 
-In this example, `var.environment` is an input variable reference. Input variables are covered in [Variables and Output Values](#variables-and-output-values).
+During `terraform plan`, Terraform normally asks providers to refresh information about managed objects and compares the real objects, prior state, and current configuration. It then proposes whether each object should be created, updated, replaced, destroyed, or left unchanged.
 
-Modern Terraform also allows direct references without interpolation when the entire value is only one expression:
-
-```hcl
-input = terraform_data.source.output
-```
+During `terraform apply`, providers translate the approved actions into API operations. As operations complete, Terraform records the results in state. If someone changes a managed object outside Terraform, a later plan can detect this **drift** and propose how to reconcile it with the configuration.
 
 ---
 
@@ -647,6 +676,8 @@ input = terraform_data.source.output
 | **Collection** | `list` | Ordered sequence of values | `["us-east-1a", "us-east-1b"]` |
 | **Collection** | `map` | String keys with values of one consistent type | `{ env = "prod", owner = "devops" }` |
 | **Structural** | `object` | Complex grouping of distinct types | `{ name = "app", port = 80 }` |
+
+> **Exam Tip — Automatic Type Conversion:** If an input variable declares `type = string` but receives the number `1`, Terraform does not fail; it converts the value to the string `"1"`. This applies whether `1` is supplied as the variable's default or through an input source such as a `.tfvars` file. Automatic conversion fails only when the supplied value is incompatible with the required type. Even when conversion is possible, prefer writing a matching value such as `default = "1"` to make the intended type explicit.
 
 ---
 
@@ -712,7 +743,7 @@ terraform apply -var-file="prod.tfvars"
 
 ### Output Values
 
-An `output` block exposes a value from the module where it is declared. Outputs are useful for displaying root-module values, passing child-module values to callers, integrating with automation, and sharing selected values with other configurations.
+An `output` block exposes a selected value from the Terraform configuration. Outputs commonly display useful information after an apply, such as resource IDs, IP addresses, endpoints, and generated names. Automation can also retrieve these values with the `terraform output` command.
 
 ```hcl
 output "instance_id" {
@@ -721,11 +752,33 @@ output "instance_id" {
 }
 ```
 
-An output name is local to the module where it is declared. Terraform displays root-module outputs in the CLI, while a calling module accesses child-module outputs using `module.<MODULE_NAME>.<OUTPUT_NAME>`. The `value` argument can reference values such as input variables and managed-resource attributes.
+Each output has a local name and a `value` argument. The `value` can reference input variables, resource attributes, and other expressions available in the configuration.
 
-After an apply, Terraform displays root-module outputs. You can query them later with `terraform output`, explained in [Querying Outputs](#querying-outputs).
+After an apply, Terraform displays the declared outputs. You can query them later with `terraform output`, explained in [Querying Outputs](#querying-outputs).
 
 > **Important:** An output is not automatically secret. Mark sensitive output values with `sensitive = true`, as explained in [Sensitive Input Variables and Outputs](#sensitive-input-variables-and-outputs).
+
+---
+
+## String Templates and Interpolation
+
+String templates combine literal text with values produced by Terraform expressions. Insert an expression into a string with `${...}`:
+
+```hcl
+resource "aws_s3_bucket" "logs" {
+  bucket_prefix = "app-logs-${var.environment}-"
+}
+```
+
+In this example, Terraform evaluates `var.environment` and inserts its value between the two literal parts of the string.
+
+Interpolation is useful when an expression forms only part of a larger string. When the entire argument is a single expression, use the expression directly without wrapping it in `"${...}"`:
+
+```hcl
+input = terraform_data.source.output
+```
+
+Local values, introduced in [Local Values](#local-values-locals), and other expressions can also be inserted into string templates.
 
 ---
 
@@ -2011,12 +2064,29 @@ CLI workspaces let you use the same working directory and configuration with sep
 They are not strong isolation boundaries for long-lived Development, QA, and Production environments because all workspaces in a configuration use the same backend and normally share its credentials and access controls.
 
 ### How do they work?
+
 By default, you are always working in a workspace named `default`. When you create a new workspace (e.g., `dev`), Terraform creates a blank, isolated state under the hood.
+
 * `terraform workspace new dev`: Creates a new workspace named "dev".
 * `terraform workspace select prod`: Switches to the "prod" workspace.
 * `terraform workspace list`: Shows all available environments.
 
+### Where Is Workspace State Stored?
+
+The configured backend determines where each workspace's state is stored:
+
+| Backend and workspace | State location |
+| :--- | :--- |
+| Local backend, `default` workspace | `terraform.tfstate` |
+| Local backend, named workspace such as `dev` | `terraform.tfstate.d/dev/terraform.tfstate` |
+| Remote backend | In the backend's remote storage, using that backend's workspace naming scheme |
+
+> **Exam Tip:** With the local backend, the `default` workspace uses `terraform.tfstate`. Named workspaces use `terraform.tfstate.d/<WORKSPACE_NAME>/terraform.tfstate`.
+
+For the S3 backend, the `default` workspace uses the configured `key`. A named workspace uses `<workspace_key_prefix>/<WORKSPACE_NAME>/<key>`. The default `workspace_key_prefix` is `env:`, so a `dev` workspace with `key = "network/terraform.tfstate"` is stored at `env:/dev/network/terraform.tfstate`.
+
 ### The Dynamic `${terraform.workspace}` Variable
+
 The true power of workspaces is that you can use the current environment's name directly inside your code to make dynamic decisions or name resources.
 
 ```hcl
