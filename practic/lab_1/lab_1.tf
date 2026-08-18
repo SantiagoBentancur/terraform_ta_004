@@ -2,15 +2,16 @@ provider "aws" {
   region = "us-east-1"
 }
 
+# Part 1
 variable "environment" {
-  description = "Environment name used to tag the EC2 instance"
+  description = "Environment used to name and tag the EC2 instance"
   type        = string
   default     = "development"
 }
 
 data "aws_ami" "amazon_linux_2023" {
-  most_recent = true
   owners      = ["amazon"]
+  most_recent = true
 
   filter {
     name   = "name"
@@ -21,22 +22,24 @@ data "aws_ami" "amazon_linux_2023" {
     name   = "state"
     values = ["available"]
   }
-}
 
-resource "aws_instance" "application" {
-  ami           = data.aws_ami.amazon_linux_2023.id
-  instance_type = "t3.micro"
-
-  tags = {
-    Name        = "${var.environment}-application-server"
-    Environment = var.environment
-    ManagedBy   = "Terraform"
-  }
 }
 
 output "selected_ami_id" {
   description = "Amazon Linux 2023 AMI selected by the data source"
   value       = data.aws_ami.amazon_linux_2023.id
+}
+
+# Part 2
+resource "aws_instance" "application" {
+  ami           = data.aws_ami.amazon_linux_2023.id
+  instance_type = "t3.micro"
+
+  tags = {
+    "Name"        = "${var.environment}-application-server"
+    "Environment" = var.environment
+    "ManagedBy"   = "Terraform"
+  }
 }
 
 output "instance_id" {

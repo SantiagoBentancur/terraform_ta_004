@@ -3,14 +3,13 @@ provider "aws" {
 }
 
 variable "is_production" {
-  description = "Whether to use the production instance count and size"
-  type        = bool
-  default     = false
+  type    = bool
+  default = false
 }
 
+
 variable "instance_types" {
-  description = "Instance type selected from the string form of is_production"
-  type        = map(string)
+  type = map(string)
   default = {
     "true"  = "t3.small"
     "false" = "t3.micro"
@@ -18,8 +17,8 @@ variable "instance_types" {
 }
 
 data "aws_ami" "amazon_linux_2023" {
-  most_recent = true
   owners      = ["amazon"]
+  most_recent = true
 
   filter {
     name   = "name"
@@ -30,17 +29,17 @@ data "aws_ami" "amazon_linux_2023" {
     name   = "state"
     values = ["available"]
   }
+
 }
 
 resource "aws_instance" "environment_server" {
-  count = var.is_production ? 2 : 1
-
+  count         = var.is_production ? 2 : 1
   ami           = data.aws_ami.amazon_linux_2023.id
   instance_type = var.instance_types[tostring(var.is_production)]
 
   tags = {
-    Name        = "server-${var.is_production ? "prod" : "dev"}-${count.index}"
-    Environment = var.is_production ? "production" : "development"
-    ManagedBy   = "Terraform"
+    "Name"        = "${var.is_production ? "prod" : "dev"}-${tostring(count.index)}"
+    "Environment" = var.is_production ? "production" : "development"
+    "ManagedBy"   = "Terraform"
   }
 }

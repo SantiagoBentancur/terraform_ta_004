@@ -2,111 +2,163 @@
 
 ## Objective
 
-Create three globally named S3 buckets from one resource block. This lab introduces `count`, `count.index`, the `format()` function, and the `aws_caller_identity` data source.
+Create multiple S3 buckets from one resource block. First, read the current AWS account identity and build globally distinctive names. Then, use `count` and `count.index` to create and address three numeric resource instances.
+
+<details>
+<summary><strong>Santiago's Implementation</strong></summary>
+
+> **Status:** Not started. Complete the requirements below before adding your solution.
+
+**[View my Terraform solution](./lab_2.tf)**
+
+When completed, this implementation should:
+
+* Read the current AWS account ID.
+* Create three S3 buckets through one resource block.
+* Build unique names and tags from `count.index`.
+* Demonstrate numeric resource-instance addresses.
+
+Validation commands:
+
+```bash
+terraform fmt -check
+terraform validate
+terraform plan
+```
+
+</details>
 
 ## Concepts to Practice
 
-* Reading the current AWS account ID with a data source
-* Creating multiple resource instances with `count`
-* Using `count.index` inside resource arguments
+* Reading account metadata through a data source
+* Creating multiple instances with `count`
+* Reading the current numeric index
 * Constructing strings with `format()`
+* Converting a number to a string
 * Understanding numeric resource addresses
 
 ## Prerequisites
 
 * Complete Lab 1.
-* Review Sections 10–12, 17, and 19 in the theoretical README.
+* Review [`count`](../../README.md#the-count-meta-argument), [Data Sources](../../README.md#data-sources-data-blocks), and [String and Conversion Functions](../../README.md#string-and-conversion-functions).
 * Configure AWS credentials with permission to create and delete S3 buckets.
 
-> **Cost and Cleanup Warning:** Empty S3 buckets generally have no meaningful storage cost, but you should still destroy all lab resources when finished.
+> **Cleanup Warning:** S3 bucket names use a global namespace. Destroy every empty lab bucket when finished.
 
-## Requirements
+## Step-by-Step Requirements
 
-Create the configuration in `lab_2.tf` without opening the solution first:
+Build the configuration in `lab_2.tf` in the order shown below. Do not open or copy another solution first.
+
+<details>
+<summary><strong>Part 1: Read the Account Identity</strong></summary>
+
+<details>
+<summary>Why the account ID is part of the name</summary>
+
+S3 bucket names must be globally unique within the standard AWS partitions. Adding the current account ID makes the name account-specific, while a numeric suffix distinguishes the three buckets in this lab. Availability is still not mathematically guaranteed, so choose a different prefix if a collision occurs.
+
+</details>
 
 1. Configure the AWS provider to use `us-east-1`.
 2. Declare a string variable named `bucket_prefix`.
    * Add a description.
-   * Use `terraform-associate-lab2` as its default value.
-3. Use the `aws_caller_identity` data source to obtain the current AWS account ID.
+   * Default it to `terraform-associate-lab2`.
+3. Use `aws_caller_identity` to obtain the current account ID.
+
+Run `terraform init` and `terraform validate` before continuing.
+
+</details>
+
+<details>
+<summary><strong>Part 2: Create and Inspect the Counted Buckets</strong></summary>
+
 4. Declare one `aws_s3_bucket` resource named `lab`.
-5. Configure the resource to create three instances with `count`.
-6. Construct each bucket name with `format()` using, in this order:
-   * The bucket-prefix variable
-   * The AWS account ID
-   * The current numeric index
-7. Separate the three name components with hyphens.
-8. Add `Name`, `Identifier`, and `ManagedBy` tags.
-   * Include the current index in `Name`, example: "Lab 2 bucket <INDEX_COUNT>".
-   * Convert the numeric index to a string for `Identifier`.
-   * Set `ManagedBy` to `Terraform`.
+5. Configure it to create three instances with `count`.
+6. Construct each bucket name with `format()` using, in order:
+   * The prefix variable.
+   * The AWS account ID.
+   * The current numeric index.
+7. Separate those components with hyphens.
+8. Add these tags:
+   * `Name` using the hyphenated format `lab-2-bucket-<index>`, where `<index>` is the string representation of the current `count.index` value.
+   * `Identifier` as the string form of the current index.
+   * `ManagedBy` as `Terraform`.
 
-The AWS account ID makes the name specific to your account, while the index makes the three names different. S3 uses a global bucket namespace by default, so each complete name must still be available.
-
-## Execution Steps
+Run:
 
 ```bash
-terraform init
-terraform fmt -check
+terraform fmt
 terraform validate
 terraform plan
+```
+
+Confirm that:
+
+* The plan proposes exactly three buckets.
+* Their addresses are `aws_s3_bucket.lab[0]`, `[1]`, and `[2]`.
+* Every bucket name is different.
+* `Identifier` is a string, not a number.
+* The summary reports `3 to add, 0 to change, 0 to destroy`.
+
+Apply and inspect:
+
+```bash
 terraform apply
+terraform state list
 ```
 
-## What to Observe
+</details>
 
-The plan should contain three numeric resource addresses:
+<details>
+<summary><strong>Part 3: Increase and Restore the Instance Count</strong></summary>
 
-```text
-aws_s3_bucket.lab[0]
-aws_s3_bucket.lab[1]
-aws_s3_bucket.lab[2]
-```
+Temporarily change `count` from three to four and run `terraform plan`.
 
-The value of `count.index` starts at zero and affects each bucket's name and tags.
+Confirm that Terraform proposes only `aws_s3_bucket.lab[3]` as a new instance. Restore the count to three and run another plan. Because the fourth instance was never applied, the final plan should contain no changes.
+
+</details>
+
+## Design Reflection
+
+Before opening the explanation, answer these questions:
+
+1. What does `count.index` contain for the first instance?
+2. Why is the account ID included in each bucket name?
+3. What is the difference between the resource block and its three instances?
+4. What happens to the existing addresses when count increases from three to four?
+5. Why are numeric indexes potentially fragile when list elements are removed from the middle?
+
+<details>
+<summary>Review the answers</summary>
+
+1. It starts at numeric index `0`.
+2. It makes the name specific to the account and reduces the chance of a global S3 naming collision.
+3. One block describes repeated behavior; state records three separately addressed instances.
+4. Addresses `[0]`, `[1]`, and `[2]` remain, and Terraform adds `[3]`.
+5. Numeric indexes describe position, so later elements can shift to different addresses after a middle removal.
+
+</details>
 
 ## Cleanup
 
+Restore `count = 3`, review the destroy plan, and run:
+
 ```bash
 terraform destroy
+terraform state list
 ```
 
-Review the destroy plan before confirming it.
+Confirm that all three buckets are empty before destruction and absent from state afterward.
 
-## Solution
+## Exam Takeaways
 
 <details>
-<summary>Show solution</summary>
+<summary>Review the exam takeaways</summary>
 
-```hcl
-provider "aws" {
-  region = "us-east-1"
-}
-
-variable "bucket_prefix" {
-  description = "Base prefix for the S3 bucket names"
-  type        = string
-  default     = "terraform-associate-lab2"
-}
-
-data "aws_caller_identity" "current" {}
-
-resource "aws_s3_bucket" "lab" {
-  count = 3
-
-  bucket = format(
-    "%s-%s-%d",
-    var.bucket_prefix,
-    data.aws_caller_identity.current.account_id,
-    count.index
-  )
-
-  tags = {
-    Name       = "Lab 2 bucket ${count.index}"
-    Identifier = tostring(count.index)
-    ManagedBy  = "Terraform"
-  }
-}
-```
+* `count` creates numerically addressed resource instances.
+* `count.index` starts at zero.
+* A resource using `count` is referenced by an indexed address.
+* `format()` constructs a string from a format pattern and values.
+* Data sources can provide account metadata without creating infrastructure.
 
 </details>
