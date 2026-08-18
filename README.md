@@ -40,6 +40,7 @@
 - [The `lifecycle` Meta-Argument](#the-lifecycle-meta-argument)
 - [Custom Conditions](#custom-conditions-precondition--postcondition)
 - [Check Blocks and Continuous Validation](#check-blocks-and-continuous-validation)
+- [Terraform Tests](#terraform-tests)
 - [Provisioners](#provisioners-the-last-resort)
 
 ### Plans, Operations, and Troubleshooting
@@ -191,6 +192,7 @@ The following sections explain each part of this workflow in more detail, beginn
 * **`terraform init`**: Prepares a Terraform working directory. It initializes the backend and installs the required providers and modules in the hidden `.terraform` directory. Modules are covered in [Terraform Modules](#terraform-modules).
   * **`terraform init -upgrade`**: Reconsiders provider and module selections and chooses the newest versions allowed by the configured constraints. For providers, it updates `.terraform.lock.hcl`; review the lock-file diff and the next plan before committing an upgrade. See [Dependency Lock File](#dependency-lock-file-terraformlockhcl).
 * **`terraform validate`**: Checks the configuration for syntax errors and internal consistency without accessing remote state or provider APIs. It requires an initialized working directory; use `terraform init -backend=false` first when you want validation without initializing the configured backend.
+* **`terraform test`**: Loads `.tftest.hcl` files and executes their `run` blocks and assertions to test root or reusable modules.
 * **`terraform fmt`**: Automatically formats your Terraform configuration files into a canonical style and standard indentation.
 * **`terraform plan`**: Refreshes resource information by default, compares the configuration with state, and proposes actions. A normal plan does not make the proposed infrastructure changes.
 * **`terraform apply`**: Creates a new plan and asks for approval, or executes a previously saved plan. Providers then create, update, or delete objects to move infrastructure toward the configured state.
@@ -662,6 +664,27 @@ Terraform uses a **declarative** approach: you describe the desired result inste
 
 During `terraform plan`, Terraform normally asks providers to refresh information about managed objects and compares the real objects, prior state, and current configuration. It then proposes whether each object should be created, updated, replaced, destroyed, or left unchanged.
 
+### Reading Terraform Plan Symbols
+
+The symbol beside each object in a plan summarizes the proposed action:
+
+| Symbol | Proposed Action |
+| :---: | :--- |
+| `+` | Create the object |
+| `-` | Destroy the object |
+| `~` | Update the object in place |
+| `-/+` | Replace the object by destroying it first and then creating its replacement |
+| `+/-` | Replace the object by creating its replacement first and then destroying the old object, typically because `create_before_destroy` applies |
+| `<=` | Read a data source during the apply operation |
+
+Within an object's attribute changes:
+
+* `old -> new` shows the value changing from the value on the left to the value on the right.
+* `# forces replacement` identifies an attribute change that prevents an in-place update and requires the object to be recreated.
+* `(known after apply)` means Terraform cannot determine the final value until it performs the operation. This is not an error by itself.
+
+> **Before Applying a Replacement:** Confirm that every replacement is intentional and inspect the attributes marked `# forces replacement`. Evaluate downtime, dependency, naming, quota, and persistent-data consequences; create or verify backups when applicable. For important changes, save the reviewed plan with `terraform plan -out=<filename>.plan` and apply that exact artifact with `terraform apply <filename>.plan`.
+
 During `terraform apply`, providers translate the approved actions into API operations. As operations complete, Terraform records the results in state. If someone changes a managed object outside Terraform, a later plan can detect this **drift** and propose how to reconcile it with the configuration.
 
 ---
@@ -982,25 +1005,102 @@ Use `nonsensitive()` only when intentionally removing the sensitive marking from
 
 Terraform includes built-in functions that transform and combine values. Terraform configuration cannot define its own functions, although providers can expose provider-defined functions.
 
-### Collection Functions
+### Built-in Functions
+
+Built-in functions use call syntax such as `length(var.names)` or `format("%s-%d", var.name, 1)`.
+
+#### Collection Functions
 
 * **`length(collection)`**: Returns the number of elements in a collection or the number of characters in a string.
-* **`keys(map)`**: Returns a list of a map's keys in lexicographical order.
+* **`keys(map)`**: Returns a list of a map's keys in alphabetical order.
 * **`values(map)`**: Returns the map's values in the same key order used by `keys()`.
+* **`zipmap(keys, values)`**: Combines one list of keys and one list of values into a map. Both lists must contain the same number of elements.
 
-### String Manipulation Functions
+For example, `keys()` and `values()` provide two corresponding ordered views of the same map:
+
+```hcl
+locals {
+  environments = {
+    staging = {
+      cidr = "10.1.0.0/16"
+    }
+    production = {
+      cidr = "10.2.0.0/16"
+    }
+  }
+
+  environment_names   = keys(local.environments)
+  environment_objects = values(local.environments)
+}
+```
+
+The expressions produce:
+
+```text
+local.environment_names   -> ["production", "staging"]
+local.environment_objects -> [production object, staging object]
+```
+
+Because both lists use the same key order, selecting position `0` from each returns the name and object for `production`.
+
+```hcl
+locals {
+  environment_names = ["development", "staging", "production"]
+  instance_sizes    = ["t3.micro", "t3.small", "t3.large"]
+
+  instance_size_by_environment = zipmap(
+    local.environment_names,
+    local.instance_sizes
+  )
+}
+```
+
+The resulting map is:
+
+```text
+{
+  "development" = "t3.micro"
+  "staging"     = "t3.small"
+  "production"  = "t3.large"
+}
+```
+
+After learning [The `count` Meta-Argument](#the-count-meta-argument) and [Splat Expressions](#splat-expressions-), you can use `zipmap()` to pair dynamically created resource names with their IDs, ARNs, or other attributes.
+
+#### String and Conversion Functions
 
 * **`lower(string)`**: Converts letters in a string to lowercase, which is useful for services that require lowercase names.
 * **`trimspace(string)`**: Removes any accidental spaces from the beginning and end of a string.
 * **`replace(string, search, replace)`**: Replaces matching substrings or regular-expression matches in a string.
   * *Example:* `replace("my-vpc", "-", "_")` returns `"my_vpc"`.
-
-### Type Conversion Function
-
 * **`tostring(value)`**: Converts a compatible value to a string.
   * *Example:* `tostring(true)` returns `"true"`.
+* **`format(format_string, values...)`**: Builds a string by replacing format specifiers with the supplied values.
+  * `%s` formats a value as a string.
+  * `%d` formats a numeric value as a decimal integer.
 
-### Conditional Expressions
+```hcl
+format(
+  "%s-%s-%d",
+  "terraform-associate-lab2",
+  "123456789012",
+  0
+)
+```
+
+The result is:
+
+```text
+terraform-associate-lab2-123456789012-0
+```
+
+The number and order of the values after the format string must match the format specifiers. String interpolation is often simpler for a small expression, but `format()` is useful when a specific reusable formatting pattern makes the result clearer.
+
+### Expressions
+
+Expressions calculate values through Terraform language syntax. Unlike built-in functions, conditional and `for` expressions are not function calls.
+
+#### Conditional Expressions
 
 A conditional expression selects one of two values using a Boolean condition:
 
@@ -1022,7 +1122,7 @@ locals {
 
 Both result expressions should return compatible types so Terraform can determine the final value's type.
 
-### `for` Expressions
+#### `for` Expressions
 
 A `for` expression transforms every element in a collection and produces a new collection. It does not create resource instances.
 
@@ -1056,40 +1156,6 @@ locals {
 ```
 
 > **Exam Distinction:** A `for` expression transforms or filters collection values. The `for_each` meta-argument, introduced in [`for_each` vs. `count`](#advanced-looping-for_each-vs-count), creates multiple resource or module instances identified by stable keys.
-
-### The `zipmap` Function
-
-The `zipmap` function takes two separate lists (one for keys, one for values) and "zips" them together into a single, cohesive `map`.
-* **Syntax:** `zipmap(list_of_keys, list_of_values)`
-* **Requirement:** Both lists must have the exact same number of elements.
-
-### Basic Example
-
-The following example combines a list of environment names with a corresponding list of instance sizes. It uses only local values and functions introduced earlier in this guide.
-
-```hcl
-locals {
-  environment_names = ["development", "staging", "production"]
-  instance_sizes    = ["t3.micro", "t3.small", "t3.large"]
-
-  instance_size_by_environment = zipmap(
-    local.environment_names,
-    local.instance_sizes
-  )
-}
-```
-
-The resulting map is:
-
-```text
-{
-  "development" = "t3.micro"
-  "staging"     = "t3.small"
-  "production"  = "t3.large"
-}
-```
-
-After learning [The `count` Meta-Argument](#the-count-meta-argument) and [Splat Expressions](#splat-expressions-), you can apply the same function to pair dynamically created resource names with their IDs, ARNs, or other attributes.
 
 ---
 
@@ -1186,56 +1252,101 @@ Both expressions return a clean list of public IPs: `["203.0.113.1", "203.0.113.
 
 ## Dynamic Blocks
 
-A `dynamic` block generates repeated nested blocks inside another supported block. This is useful when a resource needs several nested blocks of the same type, such as multiple `ingress` rules in an AWS security group.
+A `dynamic` block generates repeated nested blocks inside another supported block. This is useful when the number of nested blocks must be determined by input data, such as a variable containing IAM policy statements.
 
-* **Use Case:** Avoid copy-pasting repeated nested blocks when the data can come from a variable or local value.
-* **Mechanism:** The `dynamic "<BLOCK_NAME>"` block loops over a collection using `for_each`.
-* **Template:** The `content` block defines what each generated nested block should look like.
-* **Iterator:** If no custom `iterator` is declared, the temporary iterator has the same name as the generated block. Therefore, `dynamic "ingress"` uses `ingress.key` and `ingress.value`.
+### Anatomy of a Dynamic Block
+
+```hcl
+dynamic "statement" {
+  for_each = var.policy_statements
+  iterator = policy_statement # Optional
+
+  content {
+    sid       = policy_statement.key
+    effect    = policy_statement.value.effect
+    actions   = policy_statement.value.actions
+    resources = policy_statement.value.resources
+  }
+}
+```
+
+* **`dynamic "statement"`:** Declares that Terraform must generate nested blocks named `statement`. The parent block's provider schema must support that nested block type.
+* **`for_each`:** Selects the collection and determines how many nested blocks Terraform generates. One block is generated for every collection element.
+* **`content`:** Defines the arguments placed inside every generated `statement` block.
+* **`iterator` (optional):** Changes the temporary name used to access the current collection element inside `content`.
+
+<details>
+<summary><strong>How the Optional Iterator Works</strong></summary>
+
+If `iterator` is omitted, Terraform automatically uses the generated block's name. For `dynamic "statement"`, the default iterator is therefore `statement`:
+
+```hcl
+dynamic "statement" {
+  for_each = var.policy_statements
+
+  content {
+    sid       = statement.key
+    effect    = statement.value.effect
+    actions   = statement.value.actions
+    resources = statement.value.resources
+  }
+}
+```
+
+When iterating over a map:
+
+```text
+statement.key   → current map key
+statement.value → current map value
+```
+
+Declaring `iterator = policy_statement` only renames that temporary reference:
+
+```text
+statement → policy_statement
+```
+
+It does not change the collection, number of iterations, or generated result. A custom name is most useful when it improves clarity or when dynamic blocks are nested.
+
+</details>
 
 > **Limitation:** A `dynamic` block generates nested blocks defined by the parent block's schema. It cannot generate Terraform meta-argument blocks such as `lifecycle`, which is introduced in [The `lifecycle` Meta-Argument](#the-lifecycle-meta-argument).
 
+### Complete Example
+
 ```hcl
-variable "web_ingress_rules" {
+variable "policy_statements" {
   type = map(object({
-    port = number
-    cidr = string
+    effect    = string
+    actions   = list(string)
+    resources = list(string)
   }))
 
   default = {
-    http = {
-      port = 80
-      cidr = "10.0.0.0/8"
-    }
-    https = {
-      port = 443
-      cidr = "10.0.0.0/8"
+    DescribeInstances = {
+      effect    = "Allow"
+      actions   = ["ec2:DescribeInstances"]
+      resources = ["*"]
     }
   }
 }
 
-resource "aws_vpc" "example" {
-  cidr_block = "10.0.0.0/16"
-}
-
-resource "aws_security_group" "web" {
-  name   = "dynamic-web-sg"
-  vpc_id = aws_vpc.example.id
-
-  dynamic "ingress" {
-    for_each = var.web_ingress_rules
+data "aws_iam_policy_document" "example" {
+  dynamic "statement" {
+    for_each = var.policy_statements
+    iterator = policy_statement
 
     content {
-      from_port   = ingress.value.port
-      to_port     = ingress.value.port
-      protocol    = "tcp"
-      cidr_blocks = [ingress.value.cidr]
+      sid       = policy_statement.key
+      effect    = policy_statement.value.effect
+      actions   = policy_statement.value.actions
+      resources = policy_statement.value.resources
     }
   }
 }
 ```
 
-> **Key Idea:** `for_each` creates multiple resource instances; `dynamic` creates multiple nested blocks inside one resource.
+> **Key Idea:** Resource-level `for_each` creates multiple addressed instances; `dynamic` creates multiple nested blocks inside one parent block.
 
 ---
 
@@ -1385,6 +1496,54 @@ check "application_health" {
 ```
 
 If the assertion fails, Terraform reports a warning and continues the plan or apply. Use a precondition or postcondition instead when a failed condition must block the operation.
+
+---
+
+## Terraform Tests
+
+Terraform's native testing framework lets module authors describe test runs in files ending with `.tftest.hcl`. Store them in the module directory or, preferably, its default `tests/` directory:
+
+```text
+modules/network/
+├── main.tf
+├── variables.tf
+├── outputs.tf
+└── tests/
+    └── network.tftest.hcl
+```
+
+A test file contains one or more `run` blocks. Each run can execute a plan or apply and evaluate `assert` blocks:
+
+```hcl
+run "valid_environment" {
+  command = plan
+
+  variables {
+    environment = "development"
+  }
+
+  assert {
+    condition     = var.environment == "development"
+    error_message = "The test must use the development environment."
+  }
+}
+```
+
+Run the tests from the root directory of the module or root configuration being tested:
+
+```bash
+terraform test
+```
+
+Use `terraform test -filter=tests/network.tftest.hcl` to select one test file. Tests that use apply mode can create real infrastructure and costs, so use controlled test environments and review cleanup behavior.
+
+| Command | Purpose |
+| :--- | :--- |
+| `terraform validate` | Check syntax and internal configuration consistency |
+| `terraform plan` | Preview changes for the current configuration and state |
+| `terraform test` | Execute `.tftest.hcl` test runs and assertions |
+
+> **Exam Tip:** Creating `.tftest.hcl` files with `run` and `assert` blocks does not make normal `validate`, `plan`, or `apply` commands execute the test suite. Use `terraform test`.
 
 ---
 
@@ -1972,12 +2131,58 @@ terraform {
 }
 ```
 
+### Partial Backend Configuration
+
+A backend block can intentionally omit environment-specific settings. Terraform combines the partial block with values supplied during `terraform init`.
+
+```hcl
+terraform {
+  backend "s3" {
+    key          = "network/dev/terraform.tfstate"
+    region       = "us-east-1"
+    encrypt      = true
+    use_lockfile = true
+  }
+}
+```
+
+Supply the missing bucket name in a separate file:
+
+```hcl
+# backend.hcl
+bucket = "company-terraform-state"
+```
+
+Then initialize the complete backend configuration:
+
+```bash
+terraform init -backend-config=backend.hcl
+```
+
+Partial configuration is useful when the same Terraform configuration uses different backend locations in different environments or when backend settings are supplied by CI/CD. Backend blocks cannot refer to input variables, so `-backend-config` provides initialization-time values instead.
+
+Do not put backend credentials in the backend block or a `-backend-config` file. Terraform can copy backend configuration values into the `.terraform` directory and saved plan files. Supply credentials through the backend's supported environment variables, shared credentials files, or workload identity mechanism, and do not commit environment-specific backend files unless they contain only approved non-sensitive values.
+
+> **Exam Distinction:** `-backend-config` supplies backend settings; `-reconfigure` accepts changed backend settings without migrating state; `-migrate-state` attempts to copy existing state to the newly configured backend. These options can be combined when appropriate, for example `terraform init -backend-config=backend.hcl -migrate-state`.
+
 After adding or changing backend configuration, run:
 ```bash
 terraform init
 ```
 
 Terraform will initialize the backend and may ask whether you want to migrate existing local state to the new backend.
+
+When Terraform detects a backend configuration change, choose the initialization mode that matches your intent:
+
+```bash
+# Accept the new backend configuration without migrating existing state
+terraform init -reconfigure
+
+# Migrate existing state to the newly configured backend
+terraform init -migrate-state
+```
+
+Use `-reconfigure` when the state is already in the correct backend or when you intentionally do not want Terraform to copy existing state. Use `-migrate-state` when changing where the current state is stored. Review and back up important state before migrating it. These options are mutually exclusive.
 
 ---
 
@@ -2536,6 +2741,45 @@ Variables can be marked sensitive to redact them from the user interface and ord
 
 > **Security Reminder:** Redaction does not guarantee that a value is absent from Terraform state. Continue treating state as sensitive data.
 
+<details>
+<summary><strong>Exam Tip — Sharing Third-Party Credentials Across Related Workspaces</strong></summary>
+
+For this exam scenario, there are **three separate actions**:
+
+1. **Organize:** Put the related workspaces in the same project. This creates a logical management and access boundary, but grouping them does **not** share credentials by itself.
+2. **Store securely:** Create a variable set containing the shared credentials and mark secret values as sensitive.
+3. **Distribute:** Assign that variable set to the project so its current and future workspaces and Stacks receive the values, or assign it only to the specific workspaces that require them.
+
+```text
+Project: Application
+├── app-development
+├── app-staging
+└── app-production
+         ▲
+         │
+Sensitive variable set
+```
+
+HCP Terraform can provide variables at these commonly tested scopes:
+
+| Scope | How to Configure It | Who Receives the Values? |
+| :--- | :--- | :--- |
+| **Single workspace** | Define variables directly in the workspace | Only that workspace |
+| **Selected workspaces** | Assign a variable set to chosen workspaces | Only the selected workspaces |
+| **Project** | Assign a variable set to a project | Current and future workspaces and Stacks in that project |
+| **Global** | Mark a variable set global | Applicable current and future workspaces and Stacks in that organization |
+
+All of these scopes remain inside one HCP Terraform organization. Choose the narrowest scope that satisfies the requirement.
+
+Common distractors:
+
+* A **run trigger** queues a run in another workspace; it does not distribute credentials.
+* A **run task** calls an external service during a run; it does not synchronize workspace variables.
+* Do not commit credentials to a shared `.tfvars` file.
+* A variable set does not span separate HCP Terraform organizations.
+
+</details>
+
 ### Plans, Collaboration, and Governance
 
 HCP Terraform has multiple editions, including Free and paid plans such as Essentials, Standard, and Premium. The editions provide different limits and capabilities. Core collaboration features are broadly available, while advanced governance, security, health, and scale capabilities are associated with particular editions. Always check the current plan comparison instead of assuming every feature is included in every plan.
@@ -2549,6 +2793,110 @@ Depending on the selected edition, HCP Terraform can provide:
 * Policy enforcement with Sentinel or OPA
 * Run tasks that integrate external security or compliance systems
 * Notifications, cost estimates, drift detection, and continuous validation
+
+### Automating Workspace Runs and External Checks
+
+HCP Terraform can automate two different parts of a collaborative workflow:
+
+* **Coordinate dependent workspaces:** When one workspace successfully applies shared infrastructure, another workspace may need to run against the new result.
+* **Evaluate a run with an external system:** A security, cost, compliance, or image-validation service may need to inspect a run before or after Terraform performs an operation.
+
+HCP Terraform provides a different feature for each requirement:
+
+```text
+Need another workspace to run?       → Run trigger
+Need an external service to check?   → Run task
+```
+
+Neither feature distributes credentials or directly shares infrastructure values. Use variable sets for shared variables and credentials, and use outputs or another publication mechanism for cross-workspace data.
+
+#### Run Triggers: Workspace-to-Workspace Automation
+
+A **run trigger** automatically queues a run in a destination workspace after a source workspace completes a successful apply.
+
+```text
+Networking workspace
+successful apply
+        │
+        ▼
+Run trigger
+        │
+        ▼
+Application workspace
+queues its own run
+```
+
+The destination workspace executes its own workflow using its own configuration, variables, credentials, state, Terraform version, policies, and permissions. The trigger does not copy the source plan, changes, outputs, or credentials.
+
+A queued destination run does not necessarily apply automatically. The destination workspace first creates its own plan and evaluates its run tasks and policies. If auto-apply is disabled, it waits for authorized confirmation; if auto-apply is enabled, it can apply after all required checks pass.
+
+Run triggers can form an intentional chain:
+
+```text
+network apply
+      ↓
+application run and apply
+      ↓
+monitoring run
+```
+
+Only explicitly connected workspaces participate. Use `tfe_outputs`, a data source, or another publication mechanism when the destination also needs values produced by the source workspace.
+
+#### Run Tasks: External Integrations During a Run
+
+A **run task** sends run-related information to an external service at a configured stage. The external service evaluates the information and returns a pass or fail result to HCP Terraform.
+
+```text
+HCP Terraform run
+        │
+        ▼
+External security, cost, compliance,
+image-validation, or custom service
+        │
+        ▼
+Passed or failed result
+```
+
+Run tasks can execute at these stages:
+
+* **Pre-plan:** Before Terraform creates the plan.
+* **Post-plan:** After Terraform creates the plan.
+* **Pre-apply:** Before Terraform applies the plan.
+* **Post-apply:** After Terraform completes the apply.
+
+Their enforcement level determines the effect of failure:
+
+| Enforcement | Failure Result |
+| :--- | :--- |
+| **Advisory** | Reports a warning but does not block completion |
+| **Mandatory** | Can stop the run and prevent it from continuing |
+
+| Requirement | Correct Feature |
+| :--- | :--- |
+| Queue a downstream workspace run | **Run trigger** |
+| Call an external security or cost system | **Run task** |
+| Share values between workspaces | **`tfe_outputs`** or another publication mechanism |
+| Share variables or credentials | **Variable set** |
+| Evaluate policy as code | **Sentinel or OPA policy set** |
+
+> **Exam Memory Rule:** A run **trigger** connects workspace to workspace. A run **task** connects an HCP Terraform run to an external service.
+
+See the official [run trigger documentation](https://developer.hashicorp.com/terraform/cloud-docs/workspaces/settings#run-triggers) and [run task documentation](https://developer.hashicorp.com/terraform/cloud-docs/workspaces/settings/run-tasks).
+
+### Explorer
+
+HCP Terraform **Explorer** provides organization-wide visibility across workspaces. Authorized users can build, filter, sort, and save queries that help identify workspace ownership and usage patterns instead of opening each workspace separately.
+
+Explorer's documented views include:
+
+* **Workspaces:** Workspace details, run status, checks, drift, and related metadata.
+* **Modules:** Which module versions workspaces use.
+* **Providers:** Which provider versions workspaces use.
+* **Terraform versions:** Which Terraform CLI versions workspaces use.
+
+This makes Explorer the relevant exam answer when a question asks which HCP Terraform feature searches or analyzes information across an organization's workspaces. Do not confuse it with a workspace's state view, which inspects resources for one workspace, or infrastructure search and import, which discovers unmanaged remote objects for import.
+
+Explorer requires sufficiently broad read access, such as organization-owner or **View all workspaces** access. Its query results can be eventually consistent, so very recent changes may take time to appear. See the official [Explorer documentation](https://developer.hashicorp.com/terraform/cloud-docs/workspaces/explorer).
 
 ### Editions and Pricing
 
@@ -2636,37 +2984,37 @@ Welcome to the practical lab series for mastering Infrastructure as Code (IaC) w
 
 ## Advanced Data Structures and Looping
 
-### [Lab 4: Indexing a Map with `count`](practic/lab_4/lab_4.md)
-* **Objective:** Create one VPC for each object in a map while deliberately using numeric identities.
-* **Concepts Covered:** `map(object(...))`, `length()`, `keys()`, `values()`, lexicographical map ordering, and numeric resource addresses.
+### [Lab 4: Understanding `count` with Map-Based Resources](practic/lab_4/lab_4.md)
+* **Objective:** Use `count` with map-based resources and observe how numeric positions behave when the map changes.
+* **Concepts Covered:** `map(object(...))`, `length()`, `keys()`, `values()`, alphabetical map-key ordering, and numeric resource addresses.
 
 ### [Lab 5: Stable VPC Identities with `for_each`](practic/lab_5/lab_5.md)
 * **Objective:** Normalize input keys and create VPC instances identified by stable string keys.
 * **Concepts Covered:** `for` expressions, local values, `for_each`, `each.key`, `each.value`, string normalization, and stable resource addresses.
 
-### [Lab 6: The Blast Radius (`count` vs. `for_each`)](practic/lab_6/lab_6.md)
+### [Lab 6: Modification Scope with `count` and `for_each`](practic/lab_6/lab_6.md)
 * **Objective:** Deploy comparable infrastructure with `count` and `for_each`, then remove a middle-list item to compare shifting numeric indexes with stable string keys.
 * **Concepts Covered:** Side-by-side execution, type conversion (`toset()`), resource instance addressing (`[0]` vs. `["key"]`), and safely modifying active infrastructure.
 
-### [Lab 7: Nested Resource Loops (Dynamic Blocks)](practic/lab_7/lab_7.md)
-* **Objective:** Refactor hardcoded Security Group ingress rules into dynamic nested blocks generated from structured input data.
-* **Concepts Covered:** Nested block configuration, `dynamic` blocks, `for_each` inside resources, `content`, and iterator-style access.
+### [Lab 7: Dynamic IAM Policy Statements](practic/lab_7/lab_7.md)
+* **Objective:** Refactor repeated IAM policy statements into a dynamic nested block and test changes through structured input data.
+* **Concepts Covered:** `map(object(...))`, IAM policy documents, `dynamic` blocks, nested `for_each`, `content`, and custom iterators.
 
-### [Lab 8: The Bulletproof Data Engine (Validation & Data Wrangling)](practic/lab_8/lab_8.md)
-* **Objective:** Provision IAM users from validated structured input, enforce safety conditions, and export a clean ARN dictionary.
-* **Concepts Covered:** `object` variables, input validation, `for_each`, `toset()`, lifecycle `precondition`, and output `for` expressions.
+### [Lab 8: Variable Validation, Preconditions, and IAM Users](practic/lab_8/lab_8.md)
+* **Objective:** Provision IAM users from validated structured input, reject duplicates, enforce a resource precondition, and export an ARN map.
+* **Concepts Covered:** Complex object types, type errors, multiple validation rules, `for_each`, `toset()`, lifecycle `precondition`, and output `for` expressions.
 
 ---
 
 ## Operations, Guardrails, and Provisioning
 
-### [Lab 9: Production Guardrails & CLI Operations](practic/lab_9/lab_9.md)
-* **Objective:** Protect mock production resources, practice safe planning, refactor state addresses, and use emergency CLI operations.
-* **Concepts Covered:** `lifecycle`, `prevent_destroy`, `ignore_changes`, saved plans, `moved` blocks, `apply -replace`, and `terraform graph`.
+### [Lab 9: Lifecycle Guardrails and CLI Operations](practic/lab_9/lab_9.md)
+* **Objective:** Protect low-cost resources, apply a reviewed plan, inspect state, refactor an address, and request resource replacement.
+* **Concepts Covered:** Saved plans, `terraform show`, targeted `ignore_changes`, `prevent_destroy`, state inspection, `moved` blocks, `-replace`, and `terraform graph`.
 
-### [Lab 10: Provisioners & Connections (The Danger Zone)](practic/lab_10/lab_10.md)
-* **Objective:** Use provisioners to run local and remote actions around an EC2 instance lifecycle.
-* **Concepts Covered:** `local-exec`, `remote-exec`, `connection` blocks, destroy-time provisioners, and `on_failure = continue`.
+### [Lab 10: Provisioners and Connections](practic/lab_10/lab_10.md)
+* **Objective:** Compare local, remote, creation-time, and destroy-time provisioner behavior in a restricted EC2 exercise.
+* **Concepts Covered:** `local-exec`, `remote-exec`, SSH `connection` blocks, `self`, destroy-time provisioners, tainting, and `on_failure`.
 
 ---
 
@@ -2680,12 +3028,41 @@ Welcome to the practical lab series for mastering Infrastructure as Code (IaC) w
 
 ## Modular Architecture
 
-### [Lab 11: The Modular Migration](practic/lab_11/lab_11.md)
-* **Objective:** Refactor Checkpoint 1 into a reusable root-module and child-module architecture.
-* **Concepts Covered:** Root modules, child modules, local module sources, variable injection, output aggregation, module isolation, and provider inheritance.
+### [Lab 11: Reusable VPC Module and EC2 Consumer](practic/lab_11/lab_11.md)
+* **Objective:** Build a reusable VPC module with keyed public and private subnets, then consume its outputs from a root-module EC2 configuration.
+* **Concepts Covered:** Root and child modules, standard module structure, complex module inputs, module outputs, provider inheritance, `for_each`, and cross-module dependencies.
 
-### [Lab 12: Planned Exercise](practic/lab_12/lab_12.tf)
-* **Status:** Reserved for the next lab. The current Terraform file is empty, so no objective or concepts have been assigned yet.
+---
+
+## Advanced Validation
+
+### [Lab 12: Preconditions, Postconditions, and Check Blocks](practic/lab_12/lab_12.md)
+* **Objective:** Compare blocking lifecycle conditions with non-blocking check assertions without creating cloud infrastructure.
+* **Concepts Covered:** `precondition`, `postcondition`, `self`, `check`, assertion warnings, `can()`, and `regex()`.
+
+---
+
+## State Storage and Resource Adoption
+
+### [Lab 13: Import, Refactor, and Remove State](practic/lab_13/lab_13.md)
+* **Objective:** Import an existing S3 bucket, reconcile its configuration, rename its Terraform address, and hand management back outside Terraform.
+* **Concepts Covered:** `terraform import`, state inspection, `moved` blocks, `removed` blocks, configuration reconciliation, and remote-object identity.
+
+### [Lab 14: Remote S3 State, Locking, and Workspaces](practic/lab_14/lab_14.md)
+* **Objective:** Bootstrap an S3 backend, enable native state locking, and compare default and named workspace state paths.
+* **Concepts Covered:** Partial backend configuration, S3 state, `use_lockfile`, backend bootstrap, CLI workspaces, and workspace state isolation.
+
+---
+
+## Provider Architecture and Sensitive Data
+
+### [Lab 15: Provider Aliases and Module Provider Mapping](practic/lab_15/lab_15.md)
+* **Objective:** Configure two AWS Regions and pass default and aliased provider configurations explicitly to a child module.
+* **Concepts Covered:** Provider requirements, default configurations, aliases, `configuration_aliases`, module `providers` maps, and the implied empty default.
+
+### [Lab 16: Sensitive, Ephemeral, and Write-Only Values](practic/lab_16/lab_16.md)
+* **Objective:** Send a sensitive ephemeral input to SSM Parameter Store through a write-only argument and rotate it without persisting the secret in Terraform.
+* **Concepts Covered:** `sensitive`, `ephemeral`, `value_wo`, write-only version arguments, secret rotation, and state inspection.
 
 ---
 
