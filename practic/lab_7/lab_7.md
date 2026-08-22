@@ -1,127 +1,258 @@
-# 🛠️ Lab 7: Nested Resource Loops (Dynamic Blocks)
-
-## Concepts to Practice
-* Nested block configuration
-* `dynamic` blocks
-* Using `for_each` inside a resource
-* The `content` and `iterator` properties
-
----
+# Lab 7: Dynamic IAM Policy Statements
 
 ## Objective
-Experience the rigidity of hardcoded nested blocks by deploying a static AWS Security Group. Then, refactor the code to use a `dynamic` block, allowing the firewall rules to be generated dynamically from a complex map variable.
 
----
+Build an IAM policy document with repeated `statement` blocks. First, write two statements explicitly to understand the nested-block structure. Then, refactor them into one `dynamic` block driven by a `map(object(...))` variable.
 
-## The Requirements
+<details>
+<summary><strong>Santiago's Implementation</strong></summary>
 
-### Phase 1: The Hardcoded Anti-Pattern
-Create an AWS Security Group using standard, hardcoded `ingress` (inbound) blocks. This represents legacy code where every single port opening requires a manual copy-paste of the entire nested block.
+> **Status:** Completed.
 
-### Phase 2: The Dynamic Refactor
-Delete the hardcoded blocks and replace them with a `dynamic` block.
-1. **The Variable:** Create a map of objects containing the target ports and CIDR ranges.
-2. **The `dynamic` Engine:** Use `dynamic "ingress"` with a `for_each` loop pointing to your variable.
-3. **The `content` Template:** Map the `from_port`, `to_port`, and `cidr_blocks` arguments to the current loop iteration using `ingress.value`.
+**[View my Terraform solution](./lab_7.tf)**
 
----
+This implementation:
 
-## Terraform Code (`lab_7.tf`)
+* Generates IAM policy statements from a structured `map(object(...))`.
+* Uses a dynamic nested block with a descriptive custom iterator.
+* Keeps one stable IAM policy resource while its generated document changes.
+* Demonstrates how input data can determine the number of nested blocks.
 
-### Phase 1 Code: The Static Approach
-Copy this into your `main.tf` and run `terraform plan` to see what it generates.
+Validation commands:
 
-```hcl
-provider "aws" {
-  region = "us-east-1"
-}
-
-# ❌ The Rigid Way: Repetitive, hardcoded blocks
-resource "aws_security_group" "static_sg" {
-  name        = "static-web-sg"
-  description = "Security group with hardcoded rules"
-
-  ingress {
-    from_port   = 80
-    to_port     = 80
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  ingress {
-    from_port   = 443
-    to_port     = 443
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  ingress {
-    from_port   = 22
-    to_port     = 22
-    protocol    = "tcp"
-    cidr_blocks = ["10.0.0.0/8"]
-  }
-}
-```
-
-### Phase 2 Code: The Dynamic Refactor
-Delete the `aws_security_group` block from Phase 1 and replace it with this dynamic architecture.
-
-```hcl
-# 1. The Variable: Data decoupled from logic
-variable "web_ingress_rules" {
-  type = map(object({
-    port = number
-    cidr = string
-  }))
-  default = {
-    "http"  = { port = 80,  cidr = "0.0.0.0/0" }
-    "https" = { port = 443, cidr = "0.0.0.0/0" }
-    "ssh"   = { port = 22,  cidr = "10.0.0.0/8" }
-  }
-}
-
-# 2. The Dynamic Resource
-resource "aws_security_group" "dynamic_sg" {
-  name        = "dynamic-web-sg"
-  description = "Security group powered by dynamic blocks"
-
-  # ✅ The Dynamic Block Way
-  dynamic "ingress" {
-    # Loop over the variable map
-    for_each = var.web_ingress_rules
-    
-    # Define the template for each generated block
-    content {
-      from_port   = ingress.value.port
-      to_port     = ingress.value.port
-      protocol    = "tcp"
-      # Notice the brackets: cidr_blocks expects a list!
-      cidr_blocks = [ingress.value.cidr] 
-    }
-  }
-}
-```
-
----
-
-## Step-by-Step Implementation Guide
-
-#### Step 1: Execute Phase 1
-Drop the Phase 1 code into your configuration and run:
 ```bash
-terraform init
+terraform fmt -check
+terraform validate
 terraform plan
 ```
-Take note of how the terminal plans to create the Security Group with three distinct ingress rules.
 
-#### Step 2: Implement the Refactor
-Replace the rigid resource with the Phase 2 variable and dynamic block. Run `terraform plan` again.
-Notice that the output plan looks **exactly the same**. The end result in AWS does not change, but your code is now infinitely scalable. 
+</details>
 
-#### Step 3: Test the Flexibility
-To prove why this is powerful, add a new rule to your `default` variable block (for example, adding port `8080` for a proxy). 
+## Concepts to Practice
+
+* Declaring a `map(object(...))` variable
+* Understanding repeatable nested blocks
+* Generating nested blocks with `dynamic`
+* Iterating over a map with a custom iterator
+* Reading an iterator's `key` and `value`
+* Using `content` to define each generated block
+
+## Prerequisites
+
+* Review [Dynamic Blocks](../../README.md#dynamic-blocks).
+* Configure AWS credentials with permission to create and delete IAM policies.
+
+> **Security Note:** This lab creates a customer-managed IAM policy, but it does not attach the policy to a user, group, or role. Therefore, it grants no permissions by itself.
+
+## Step-by-Step Requirements
+
+Build the configuration in `lab_7.tf` in the order shown below. Do not open the solution first.
+
+<details>
+<summary><strong>Part 1: Build and Test a Static Policy</strong></summary>
+
+<details>
+<summary>AWS IAM overview</summary>
+
+An IAM policy is a JSON document that defines permissions in AWS. Each policy contains one or more statements, and each statement can include:
+
+* `Sid`: An optional descriptive identifier for the statement.
+* `Effect`: Whether the statement allows or denies access.
+* `Action`: The AWS operations affected, such as `s3:GetObject`.
+* `Resource`: The AWS resources to which the actions apply.
+
+In this lab, the two Terraform blocks have different responsibilities:
+
+* `data "aws_iam_policy_document"` generates the policy JSON locally. It does not query or create an IAM policy in AWS.
+* `resource "aws_iam_policy"` sends that JSON to AWS and manages the customer-managed policy.
+
+Creating a policy does not grant permissions by itself. Permissions are granted only after the policy is attached to an IAM user, group, or role.
+
+</details>
+
+1. Configure the AWS provider to use `us-east-1`.
+2. Create an `aws_iam_policy_document` data source named `application_document`.
+3. Inside the data source, add these two explicit `statement` blocks:
+   * First statement:
+     * SID: `ReadApplicationObjects`
+     * Effect: `Allow`
+     * Action: `s3:GetObject`
+     * Resource: `arn:aws:s3:::example-application-bucket/*`
+   * Second statement:
+     * SID: `DescribeInstances`
+     * Effect: `Allow`
+     * Action: `ec2:DescribeInstances`
+     * Resource: `*`
+
+The `sid` (statement ID) is a descriptive identifier for an individual IAM policy statement. In this lab, each SID also becomes the key used to identify that statement in the input map.
+
+Your data source should represent this static structure:
+
 ```hcl
-    "proxy" = { port = 8080, cidr = "0.0.0.0/0" }
+data "aws_iam_policy_document" "application_document" {
+  statement {
+    sid       = "ReadApplicationObjects"
+    effect    = "Allow"
+    actions   = ["s3:GetObject"]
+    resources = ["arn:aws:s3:::example-application-bucket/*"]
+  }
+
+  statement {
+    sid       = "DescribeInstances"
+    effect    = "Allow"
+    actions   = ["ec2:DescribeInstances"]
+    resources = ["*"]
+  }
+}
 ```
-Run `terraform plan`. You successfully added a new firewall rule strictly by updating the data variable, without ever touching the core resource logic!
+
+4. Create an `aws_iam_policy` resource named `application_policy`.
+   * Set its name to `lab-7-application-policy`.
+   * Set `policy` to the JSON generated by the policy-document data source.
+   * Add a `ManagedBy = "Terraform"` tag.
+5. Declare an output named `policy_json`.
+   * Return the generated JSON from `data.aws_iam_policy_document.application_document.json`.
+
+Test Part 1 before continuing:
+
+```bash
+terraform init
+terraform fmt
+terraform validate
+terraform plan
+terraform apply
+terraform output policy_json
+```
+
+Confirm that the generated JSON contains two IAM statements. Notice that adding another permission would require copying another complete `statement` block.
+
+</details>
+
+<details>
+<summary><strong>Part 2: Refactor and Test the Dynamic Policy</strong></summary>
+
+6. Declare a variable named `policy_statements` using:
+
+   ```hcl
+   map(object({
+     effect    = string
+     actions   = list(string)
+     resources = list(string)
+   }))
+   ```
+
+7. Move the information from the two static statements into the variable's default map.
+   * Use the SIDs `ReadApplicationObjects` and `DescribeInstances` as the map keys.
+   * Store each statement's effect, actions, and resources in its object.
+8. Comment out the two explicit `statement` blocks instead of deleting them.
+   * Keeping the static version as comments makes it easier to compare it with the dynamic refactor during the lab.
+   * In production code, remove obsolete commented blocks after completing and reviewing the refactor.
+9. Inside the same data source, add one `dynamic "statement"` block.
+   * Iterate over `var.policy_statements`.
+   * Use a custom iterator named `policy_statement`.
+   * Inside `content`:
+     * Set `sid` from `policy_statement.key`.
+     * Set `effect`, `actions`, and `resources` from `policy_statement.value`.
+
+Do not rename the existing data source or IAM policy. Their addresses must remain:
+
+```text
+data.aws_iam_policy_document.application_document
+aws_iam_policy.application_policy
+```
+
+Test Part 2 before continuing:
+
+```bash
+terraform fmt
+terraform validate
+terraform plan
+```
+
+The generated document should contain the same intended permissions as Part 1. However, a map is iterated by key, so the generated statements may appear in a different order from the original static blocks. Terraform may therefore show an in-place update (`~`) even when the effective permissions are unchanged.
+
+Review the complete plan and confirm:
+
+* The resource address remains `aws_iam_policy.application_policy`.
+* Every intended SID, action, and resource is still present.
+* The summary reports `0 to destroy`.
+
+Do not expect the plan to always report `No changes`. After verifying the plan, run:
+
+```bash
+terraform apply
+terraform output policy_json
+```
+
+</details>
+
+<details>
+<summary><strong>Part 3: Extend the Policy Through Its Input</strong></summary>
+
+10. Add this entry to the `policy_statements` default map:
+
+```hcl
+ReadCloudWatchMetrics = {
+  effect    = "Allow"
+  actions   = ["cloudwatch:GetMetricData", "cloudwatch:ListMetrics"]
+  resources = ["*"]
+}
+```
+
+Test Part 3:
+
+```bash
+terraform plan
+terraform apply
+terraform output policy_json
+```
+
+Confirm that the generated document now contains a third statement even though the data source still has only one `dynamic "statement"` block.
+
+</details>
+
+## Design Reflection
+
+Before opening the explanation, answer these questions:
+
+1. If this policy will always contain exactly two fixed statements, does the dynamic block provide a meaningful advantage?
+2. What would happen if five teams used this configuration but required different numbers of statements?
+3. Could a team add another statement without modifying the policy-document block?
+4. Does the dynamic block create multiple IAM policies or multiple nested statements inside one policy?
+5. When would explicit `statement` blocks be easier to understand than a dynamic block?
+
+<details>
+<summary>Review the answers</summary>
+
+1. For two fixed statements, explicit blocks are usually simpler and easier to read.
+2. A dynamic block allows each team to provide a different collection of statements.
+3. Yes. A team can change its input map without modifying the reusable policy logic.
+4. It generates nested statements inside one policy document. It does not create multiple IAM policies.
+5. Explicit blocks are preferable when the number of statements is small and fixed, or when the statements have significantly different structures.
+
+The purpose of a dynamic block is not merely to reduce lines of code. Its primary value is allowing input data to determine how many nested blocks Terraform generates.
+
+</details>
+
+## Cleanup
+
+Run:
+
+```bash
+terraform destroy
+```
+
+Review the destroy plan before confirming it. Terraform will delete the customer-managed IAM policy created by this lab.
+
+## Exam Takeaways
+
+<details>
+<summary>Review the exam takeaways</summary>
+
+* A `dynamic` block generates repeatable nested blocks inside another block.
+* `for_each` inside a `dynamic` block iterates over the input collection but does not create separately addressed resources.
+* The iterator exposes `key` and `value` when iterating over a map.
+* The `content` block defines the arguments of every generated nested block.
+* Data sources read or generate information; resources manage infrastructure objects.
+
+</details>
