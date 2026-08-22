@@ -39,7 +39,6 @@ terraform plan
 
 ## Prerequisites
 
-* Complete Labs 1 and 2.
 * Review [Conditional Expressions](../../README.md#conditional-expressions), [String and Conversion Functions](../../README.md#string-and-conversion-functions), and [`count`](../../README.md#the-count-meta-argument).
 * Configure AWS credentials with permission to create and terminate EC2 instances.
 

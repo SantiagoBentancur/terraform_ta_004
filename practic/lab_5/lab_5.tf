@@ -2,43 +2,52 @@ provider "aws" {
   region = "us-east-1"
 }
 
-variable "network_environments" {
-  description = "VPC configurations with deliberately inconsistent input keys"
+variable "environments" {
   type = map(object({
-    cidr = string
+    cidr     = string
+    priority = number
   }))
 
   default = {
-    "STAGE-environment " = {
-      cidr = "10.1.0.0/16"
+    staging = {
+      cidr     = "10.1.0.0/16"
+      priority = 2
     }
-    "PROD_Cluster-North " = {
-      cidr = "10.2.0.0/16"
+
+    production = {
+      cidr     = "10.2.0.0/16"
+      priority = 1
     }
+
+    "QA-environment " = {
+      cidr     = "10.3.0.0/16"
+      priority = 3
+    }
+
   }
+
 }
 
 locals {
   clean_environments = {
-    for key, value in var.network_environments :
-    replace(trimspace(lower(key)), "-", "_") => value
+    for key, value in var.environments : replace(lower(trimspace(key)), "-", "_") => value
   }
 }
 
 resource "aws_vpc" "environment" {
-  for_each = local.clean_environments
-
+  for_each         = local.clean_environments
   cidr_block       = each.value.cidr
   instance_tenancy = "default"
 
   tags = {
     Name        = "vpc-${each.key}"
     Environment = each.key
+    Priority    = tostring(each.value.priority)
     ManagedBy   = "Terraform"
   }
 }
 
 output "normalized_environments" {
-  description = "Environment map after key normalization"
+  description = "Environment definitionsE"
   value       = local.clean_environments
 }
