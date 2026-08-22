@@ -7,7 +7,7 @@ Create multiple S3 buckets from one resource block. First, read the current AWS 
 <details>
 <summary><strong>Santiago's Implementation</strong></summary>
 
-> **Status:** Not started. Complete the requirements below before adding your solution.
+> **Status:** Completed.
 
 **[View my Terraform solution](./lab_2.tf)**
 
@@ -39,7 +39,6 @@ terraform plan
 
 ## Prerequisites
 
-* Complete Lab 1.
 * Review [`count`](../../README.md#the-count-meta-argument), [Data Sources](../../README.md#data-sources-data-blocks), and [String and Conversion Functions](../../README.md#string-and-conversion-functions).
 * Configure AWS credentials with permission to create and delete S3 buckets.
 

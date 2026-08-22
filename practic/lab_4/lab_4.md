@@ -40,7 +40,6 @@ terraform plan
 
 ## Prerequisites
 
-* Complete Labs 1–3.
 * Review [Complex Data Types](../../README.md#complex-data-types-object-and-set), [Collection Functions](../../README.md#collection-functions), [String and Conversion Functions](../../README.md#string-and-conversion-functions), and [`count`](../../README.md#the-count-meta-argument).
 * Configure AWS credentials with permission to create and delete VPCs.
 

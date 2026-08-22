@@ -7,7 +7,7 @@ Deploy one EC2 instance using an Amazon Linux 2023 AMI discovered at runtime. Fi
 <details>
 <summary><strong>Santiago's Implementation</strong></summary>
 
-> **Status:** Not started. Complete the requirements below before adding your solution.
+> **Status:** Completed.
 
 **[View my Terraform solution](./lab_1.tf)**
 
@@ -39,7 +39,6 @@ terraform plan
 
 ## Prerequisites
 
-* Complete Lab 0.
 * Review [Providers](../../README.md#providers), [Variables and Output Values](../../README.md#variables-and-output-values), [Data Sources](../../README.md#data-sources-data-blocks), and [Output Values](../../README.md#output-values).
 * Configure AWS credentials outside Terraform with permission to create and terminate EC2 instances in `us-east-1`.
 
