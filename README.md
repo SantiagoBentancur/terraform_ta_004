@@ -788,6 +788,11 @@ After an apply, Terraform displays the declared outputs. You can query them late
 String templates combine literal text with values produced by Terraform expressions. Insert an expression into a string with `${...}`:
 
 ```hcl
+variable "environment" {
+  type    = string
+  default = "development"
+}
+
 resource "aws_s3_bucket" "logs" {
   bucket_prefix = "app-logs-${var.environment}-"
 }
@@ -828,11 +833,54 @@ This introductory condition validates the required prefix, but it does not prove
 
 A `locals` block assigns a name to an expression or value so it can be reused throughout your Terraform configuration without repeating the same logic.
 
+### Basic Structure
+
+Declare one or more local values inside a `locals` block:
+
+```hcl
+locals {
+  local_name = expression
+}
+```
+
+Reference a declared value with `local.<name>`:
+
+```hcl
+local.local_name
+```
+
+Terraform uses `locals` (plural) for the declaration block and `local` (singular) for references. There is no `local {}` declaration and no `locals.local_name` reference.
+
 * Local values can hold fixed values or calculate new values from variables, resource attributes, and functions. Functions are introduced in [Essential Terraform Functions and Expressions](#essential-terraform-functions-and-expressions).
 * They are useful for common tags, naming conventions, repeated expressions, and transformed or combined input values.
 * A local value can be referenced from any `.tf` file in the same Terraform working directory.
 
 > **Scope Note:** Local values are available only within the Terraform configuration where they are declared. A separate configuration in another directory does not automatically receive them.
+
+This example derives a local value from an input variable and then uses it in a resource:
+
+```hcl
+variable "environment" {
+  type    = string
+  default = "production"
+}
+
+locals {
+  name_prefix = "myapp-${var.environment}"
+}
+
+resource "terraform_data" "example" {
+  input = local.name_prefix
+}
+```
+
+The value flows through the configuration as:
+
+```text
+var.environment -> local.name_prefix -> terraform_data.example.input
+```
+
+Local values can also reference one another when that makes a repeated expression clearer:
 
 ```hcl
 locals {
@@ -851,26 +899,7 @@ resource "aws_s3_bucket" "application" {
 }
 ```
 
-This declares two local values: `application_name` and `common_tags`. They can be referenced elsewhere as `local.application_name` and `local.common_tags`.
-
-### Declaration vs. Reference Syntax
-
-Terraform deliberately uses two similar but different words:
-
-* **Declare local values with `locals` (plural):** `locals { ... }`
-* **Reference one declared value with `local` (singular):** `local.<name>`
-
-```hcl
-locals {
-  environment_name = "production"
-}
-
-resource "aws_s3_bucket" "logs" {
-  bucket_prefix = "application-logs-${local.environment_name}-"
-}
-```
-
-There is no `locals.environment_name` reference and no `local {}` declaration block.
+This declares `application_name` and `common_tags`, referenced as `local.application_name` and `local.common_tags`.
 
 ### Local Values vs. Input Variables
 
@@ -885,22 +914,6 @@ Both avoid repeating hardcoded values, but they solve different problems:
 | Typical example | Region, environment name, instance type, or CIDR | Common tags, normalized names, or a value calculated from several inputs |
 
 Use an **input variable** when a user or automation should be able to provide a different value without editing the Terraform configuration. Use a **local value** when the configuration should calculate, name, or control the value internally.
-
-```hcl
-variable "environment" {
-  type = string
-}
-
-locals {
-  name_prefix = "myapp-${var.environment}"
-  common_tags = {
-    Environment = var.environment
-    ManagedBy   = "Terraform"
-  }
-}
-```
-
-Here, the user supplies `var.environment`, while the configuration derives `local.name_prefix` and `local.common_tags` from it.
 
 ### When Local Values Become a Disadvantage
 
@@ -1015,6 +1028,17 @@ Built-in functions use call syntax such as `length(var.names)` or `format("%s-%d
 * **`keys(map)`**: Returns a list of a map's keys in alphabetical order.
 * **`values(map)`**: Returns the map's values in the same key order used by `keys()`.
 * **`zipmap(keys, values)`**: Combines one list of keys and one list of values into a map. Both lists must contain the same number of elements.
+* **`flatten(list)`**: Replaces directly or indirectly nested lists with their elements to produce one flat list.
+  * *Example:* `flatten([["subnet-a", "subnet-b"], ["subnet-c"]])` returns `["subnet-a", "subnet-b", "subnet-c"]`.
+* **`compact(list)`**: Removes null and empty-string elements from a list of strings.
+  * *Example:* `compact(["web", "", "api", null])` returns `["web", "api"]`.
+* **`distinct(list)`**: Removes duplicate elements while preserving the order of the first occurrence.
+  * *Example:* `distinct(["east", "east", "west"])` returns `["east", "west"]`.
+* **`merge(maps...)`**: Combines maps or objects. When the same key appears more than once, the value from the later argument takes precedence.
+  * *Example:* `merge({ owner = "platform" }, { owner = "santiago", env = "dev" })` returns `{ owner = "santiago", env = "dev" }`.
+
+<details>
+<summary>Examples using <code>keys()</code>, <code>values()</code>, and <code>zipmap()</code></summary>
 
 For example, `keys()` and `values()` provide two corresponding ordered views of the same map:
 
@@ -1067,14 +1091,27 @@ The resulting map is:
 
 After learning [The `count` Meta-Argument](#the-count-meta-argument) and [Splat Expressions](#splat-expressions-), you can use `zipmap()` to pair dynamically created resource names with their IDs, ARNs, or other attributes.
 
+</details>
+
 #### String and Conversion Functions
 
 * **`lower(string)`**: Converts letters in a string to lowercase, which is useful for services that require lowercase names.
+* **`upper(string)`**: Converts letters in a string to uppercase.
+  * *Example:* `upper("api")` returns `"API"`.
 * **`trimspace(string)`**: Removes any accidental spaces from the beginning and end of a string.
 * **`replace(string, search, replace)`**: Replaces matching substrings or regular-expression matches in a string.
   * *Example:* `replace("my-vpc", "-", "_")` returns `"my_vpc"`.
+* **`split(separator, string)`**: Divides one string into a list wherever the separator appears.
+  * *Example:* `split(",", "80,443,8080")` returns `["80", "443", "8080"]`.
+* **`join(separator, list)`**: Combines a list of strings into one string with the separator between elements.
+  * *Example:* `join("-", ["terraform", "aws", "practice"])` returns `"terraform-aws-practice"`.
 * **`tostring(value)`**: Converts a compatible value to a string.
   * *Example:* `tostring(true)` returns `"true"`.
+* **`tolist(value)`**: Converts a compatible collection to a list. Converting an unordered set does not restore its original ordering.
+* **`toset(value)`**: Converts a compatible collection to a set, removing duplicates and discarding ordering.
+  * *Example:* `toset(["api", "api", "web"])` returns a set containing `"api"` and `"web"`.
+* **`tomap(value)`**: Converts a compatible object or collection of key/value pairs to a map whose values share one element type.
+  * *Example:* `tomap({ region = "us-east-1", env = "dev" })` returns a map of strings.
 * **`format(format_string, values...)`**: Builds a string by replacing format specifiers with the supplied values.
   * `%s` formats a value as a string.
   * `%d` formats a numeric value as a decimal integer.
@@ -1126,17 +1163,53 @@ Both result expressions should return compatible types so Terraform can determin
 
 A `for` expression transforms every element in a collection and produces a new collection. It does not create resource instances.
 
-Transform a list:
+The general list-producing structure is:
+
+```text
+[for item in collection : transformed_item]
+```
+
+For example, declare the source list first and then transform it in a local value:
 
 ```hcl
+variable "names" {
+  type    = list(string)
+  default = [" API ", "WEB "]
+}
+
 locals {
   normalized_names = [for name in var.names : lower(trimspace(name))]
 }
 ```
 
-Transform a map while preserving each value:
+The result is `["api", "web"]`.
+
+A list iteration exposes one item at a time. A map is different because every element is a key/value pair. When the result must keep that relationship, use braces to produce a map and `=>` to associate each result key with its result value:
+
+```text
+{
+  for key, value in map : new_key => new_value
+}
+```
+
+Imagine that environment names arrive with inconsistent capitalization and surrounding spaces, but each name is already associated with the correct network object. The configuration needs to clean the names without losing those objects:
 
 ```hcl
+variable "environments" {
+  type = map(object({
+    cidr = string
+  }))
+
+  default = {
+    " Production " = {
+      cidr = "10.2.0.0/16"
+    }
+    STAGING = {
+      cidr = "10.1.0.0/16"
+    }
+  }
+}
+
 locals {
   normalized_environments = {
     for key, value in var.environments : lower(trimspace(key)) => value
@@ -1144,9 +1217,34 @@ locals {
 }
 ```
 
-An optional `if` clause filters elements:
+The resulting keys are `production` and `staging`, and each key remains paired with its original CIDR object.
+
+Read the map expression from left to right:
+
+```text
+for key, value in var.environments → read each original key/object pair
+lower(trimspace(key))              → produce the cleaned result key
+=> value                           → attach the original object to that key
+```
+
+An optional `if` clause filters elements. This example keeps only production servers:
 
 ```hcl
+variable "servers" {
+  type = map(object({
+    environment = string
+  }))
+
+  default = {
+    api = {
+      environment = "production"
+    }
+    test = {
+      environment = "development"
+    }
+  }
+}
+
 locals {
   production_servers = {
     for key, value in var.servers : key => value
@@ -1211,25 +1309,102 @@ A single resource block cannot use both `count` and `for_each`.
   * `each.key`: The string identifier (the map key or set item).
   * `each.value`: The nested data/object attached to that key.
 
+The general resource structure is:
+
+```text
+resource "<resource_type>" "<local_name>" {
+  for_each = <map_or_set_of_strings>
+
+  argument = each.value
+}
+```
+
+In a typical configuration, declare the collection separately as an input variable:
+
 ```hcl
-resource "terraform_data" "environments" {
-  for_each = {
-    development = "small"
-    production  = "large"
+variable "environments" {
+  type = map(object({
+    size = string
+  }))
+
+  default = {
+    development = {
+      size = "small"
+    }
+    production = {
+      size = "large"
+    }
   }
+}
+
+resource "terraform_data" "environment" {
+  for_each = var.environments
 
   input = {
     name = each.key
-    size = each.value
+    size = each.value.size
   }
 }
 ```
 
-The two instance addresses are `terraform_data.environments["development"]` and `terraform_data.environments["production"]`.
+The expression can be read in stages:
+
+```text
+var.environments  -> complete input map
+each.key          -> current map key
+each.value        -> current object
+each.value.size   -> size attribute from the current object
+```
+
+The two instance addresses are `terraform_data.environment["development"]` and `terraform_data.environment["production"]`.
+
+A transformed local map can also be supplied to `for_each`:
+
+```hcl
+locals {
+  normalized_environments = {
+    for key, value in var.environments : lower(trimspace(key)) => value
+  }
+}
+
+resource "terraform_data" "normalized_environment" {
+  for_each = local.normalized_environments
+
+  input = {
+    name = each.key
+    size = each.value.size
+  }
+}
+```
+
+This flow is:
+
+```text
+input variable -> for expression -> local map -> for_each -> resource instances
+```
+
+The local transformation is optional. `for_each` can use `var.environments` directly when the input keys already have the desired form.
 
 Use `count` when instances are nearly identical and a numeric index is meaningful. Prefer `for_each` when instances have stable names or keys.
 
-> **Note on Lists:** `for_each` does not implicitly convert a list to a set. If duplicates and ordering are not meaningful, explicitly convert a `list(string)` with `toset()`: `for_each = toset(var.my_list)`.
+### Using a List with `for_each`
+
+`for_each` does not implicitly convert a list to a set. If duplicates and ordering are not meaningful, explicitly convert a `list(string)` with `toset()`:
+
+```hcl
+variable "environment_names" {
+  type    = list(string)
+  default = ["development", "production"]
+}
+
+resource "terraform_data" "environment_from_set" {
+  for_each = toset(var.environment_names)
+
+  input = each.value
+}
+```
+
+For a set of strings, `each.key` and `each.value` contain the same string. The resulting addresses are `terraform_data.environment_from_set["development"]` and `terraform_data.environment_from_set["production"]`.
 
 ---
 
@@ -2992,9 +3167,9 @@ Welcome to the practical lab series for mastering Infrastructure as Code (IaC) w
 * **Objective:** Normalize input keys and create VPC instances identified by stable string keys.
 * **Concepts Covered:** `for` expressions, local values, `for_each`, `each.key`, `each.value`, string normalization, and stable resource addresses.
 
-### [Lab 6: Modification Scope with `count` and `for_each`](practic/lab_6/lab_6.md)
-* **Objective:** Deploy comparable infrastructure with `count` and `for_each`, then remove a middle-list item to compare shifting numeric indexes with stable string keys.
-* **Concepts Covered:** Side-by-side execution, type conversion (`toset()`), resource instance addressing (`[0]` vs. `["key"]`), and safely modifying active infrastructure.
+### [Lab 6: Terraform Console and Collection Transformations](practic/lab_6/lab_6.md)
+* **Objective:** Use `terraform console` to inspect, transform, filter, flatten, merge, and convert local collection values without creating cloud resources.
+* **Concepts Covered:** `terraform console`, list-producing and map-producing `for` expressions, filtering, nested transformations, collection and string functions, and type conversion.
 
 ### [Lab 7: Dynamic IAM Policy Statements](practic/lab_7/lab_7.md)
 * **Objective:** Refactor repeated IAM policy statements into a dynamic nested block and test changes through structured input data.
