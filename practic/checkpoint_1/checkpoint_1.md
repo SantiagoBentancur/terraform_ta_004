@@ -1,11 +1,14 @@
-# 🏗️ Checkpoint Project 1: The SAA "Multi-AZ Web Tier"
+# 🏗️ Checkpoint Project 1: Multi-AZ Web Compute Foundation
 
 ## The Scenario
-A client needs a highly available web architecture designed to AWS Solutions Architect Associate (SAA) standards. If an AWS data center (Availability Zone) goes offline, their application must stay online. They also have a critical backup storage bucket that must be protected from accidental deletion at all costs.
+A client is building the foundation of a resilient web environment on AWS. The first step is to distribute EC2 instances across two Availability Zones, apply consistent network access rules, and create a backup storage bucket protected from accidental deletion.
 
-**The AWS Architecture (SAA Concepts):**
-* **Multi-AZ Compute:** EC2 instances deployed into 2 completely different Availability Zones (`us-east-1a` and `us-east-1b`).
-* **Security:** A single Security Group attached to all instances allowing port 80 (HTTP) and port 22 (SSH).
+This project demonstrates multi-AZ resource placement and infrastructure guardrails, but it is not a complete highly available architecture. Automatic failover would also require components such as a load balancer, health checks, and a traffic-routing strategy.
+
+**Architecture Concepts:**
+
+* **Multi-AZ Compute Placement:** EC2 instances deployed into two different Availability Zones (`us-east-1a` and `us-east-1b`).
+* **Security:** A single security group attached to all instances, allowing port 80 (HTTP) and port 22 (SSH).
 * **Data Protection:** An S3 bucket simulating a critical data vault.
 
 ---

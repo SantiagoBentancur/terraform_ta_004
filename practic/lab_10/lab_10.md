@@ -1,122 +1,264 @@
-# 🛠️ Lab 10: Provisioners & Connections (The Danger Zone)
-
-## Concepts to Practice
-* Local execution (`local-exec`)
-* Remote script execution (`remote-exec`)
-* Network authentication (`connection` blocks)
-* Lifecycle hooks (`when = destroy`)
-* Error handling (`on_failure = continue`)
-
----
+# Lab 10: Provisioners and Connections
 
 ## Objective
-Deploy an Ubuntu EC2 instance and interact with it outside of Terraform's standard state management. You will use `local-exec` to write the server's IP address to a local text file, and `remote-exec` to SSH into the server and install Nginx. Finally, you will test a destroy-time provisioner.
 
-**⚠️ Prerequisite:** You MUST have your AWS-generated `.pem` Private Key saved in your project directory to successfully run this lab.
+A legacy EC2 deployment requires a command to run on the Terraform operator's machine and a temporary SSH-based bootstrap process to install Nginx on the instance. The team also needs to understand what happens when one of those commands fails or the instance is destroyed.
 
----
+Use this controlled scenario to compare local and remote execution, SSH connections, creation-time and destroy-time behavior, and `on_failure = continue`. Provisioners appear in Terraform and certification material, but they are a last resort rather than the preferred configuration mechanism.
 
-## Terraform Code (`lab_10.tf`)
+<details>
+<summary><strong>Santiago's Implementation</strong></summary>
 
-```hcl
-provider "aws" {
-  region = "us-east-1"
-}
+> **Status:** In progress. The exercise and implementation are still under review.
 
-# 0. ADD THE SECURITY GROUP
-resource "aws_security_group" "allow_ssh" {
-  name        = "allow_ssh_lab10"
-  description = "Allow SSH inbound traffic"
+**[View my Terraform solution](./lab_10.tf)**
 
-  # Allow incoming SSH from anywhere
-  ingress {
-    from_port   = 22
-    to_port     = 22
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
+When completed, this implementation should:
 
-  # ADD THIS: The door for your Web Browser (HTTP)
-  ingress {
-    from_port   = 80
-    to_port     = 80
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-  
-  # Allow the server to download packages (like Nginx) from the internet
-  egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1" # -1 means all protocols
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-}
+* Compare commands executed locally and through SSH on EC2.
+* Use `self` to access attributes of the instance being provisioned.
+* Demonstrate the default failure behavior and `on_failure = continue`.
+* Observe a destroy-time provisioner before resource deletion.
 
-resource "aws_instance" "web_server" {
-  ami           = "ami-0c7217cdde317cfec" # Standard Ubuntu AMI
-  instance_type = "t3.micro"
+Validation commands:
 
-  # REPLACE THIS with the exact name of your key pair from the AWS Console
-  key_name = "terraform"
-
-  # 1. THE CONNECTION BLOCK (Required for remote-exec)
-  connection {
-    type = "ssh"
-    user = "ubuntu"
-    # Absolute path to the .pem file downloaded from AWS
-    private_key = file("../terraform.pem")
-    host        = self.public_ip
-  }
-
-  # 2. ATTACH THE SECURITY GROUP TO THE INSTANCE
-  vpc_security_group_ids = [aws_security_group.allow_ssh.id]
-
-  # 3. REMOTE-EXEC: Runs directly on the AWS Server
-  provisioner "remote-exec" {
-    # If the Nginx install fails, print a warning but do NOT taint the resource
-    on_failure = continue
-
-    inline = [
-      "echo 'Waiting for server to fully boot...'",
-      "sudo apt-get update -y",
-      "sudo apt-get install -y nginx",
-      "sudo systemctl start nginx"
-    ]
-  }
-
-  # 4. LOCAL-EXEC: Runs on your local laptop
-  provisioner "local-exec" {
-    command = "echo 'The server IP is ${self.public_ip}' > server_info.txt"
-  }
-
-  # 5. DESTROY-TIME PROVISIONER: Runs right before deletion
-  provisioner "local-exec" {
-    when    = destroy
-    command = "echo 'Server ${self.public_ip} has been destroyed!' >> server_info.txt"
-  }
-}
+```bash
+terraform fmt -check
+terraform validate
+terraform plan
 ```
 
----
+</details>
 
-## Execution & Testing Steps
+## Concepts to Practice
 
-#### Phase 1: Deployment & Authentication
-1. Double-check line 10 (`key_name`) to ensure it perfectly matches the name of the key pair in your AWS Console. 
-2. Run `terraform init` and `terraform apply -auto-approve`.
-3. Watch your terminal closely. You will see Terraform actively connecting over SSH using your `.pem` file and printing the standard Ubuntu `apt-get` logs directly to your screen.
+* Running `local-exec` and `remote-exec`
+* Configuring an SSH `connection` block
+* Using `self` inside provisioners
+* Comparing creation-time and destroy-time provisioners
+* Comparing `on_failure = fail` and `continue`
 
-#### Phase 2: Verifying Local Execution
-1. Look inside your folder. You will see a brand new file named `server_info.txt` that Terraform created locally.
-2. Open it. It should contain a message with the public IP of your new EC2 instance.
+## Prerequisites
 
-#### Phase 3: Verifying Remote Execution
-1. Copy the public IP address from `server_info.txt`.
-2. Open your web browser and paste the IP into the address bar. 
-3. You should see the default **"Welcome to nginx!"** landing page. Terraform successfully reached inside the server and configured it.
+* Review [Provisioners](../../README.md#provisioners-the-last-resort).
+* Configure AWS credentials with EC2 and security-group permissions.
+* Confirm that `us-east-1` has a default VPC and subnet.
+* Create an EC2 key pair and keep its private key outside the repository.
+* Determine your public IPv4 address as a `/32` CIDR.
 
-#### Phase 4: The Destroy Trigger
-1. Run `terraform destroy -auto-approve`.
-2. As soon as the destroy command starts, Terraform will trigger the `when = destroy` provisioner.
-3. Open `server_info.txt` one last time. You will see the final death message appended to the bottom of the file!
+> **Security Warning:** Never commit a private key or expose SSH to `0.0.0.0/0`.
+
+> **Cost Warning:** This lab creates an EC2 instance. Complete the cleanup procedure.
+
+## Step-by-Step Requirements
+
+Build the configuration in `lab_10.tf` in the order shown below. Do not open or copy another solution first.
+
+<details>
+<summary><strong>Part 1: Build and Preview the EC2 Infrastructure</strong></summary>
+
+<details>
+<summary>Legacy bootstrap scenario</summary>
+
+This exercise deliberately adds commands after Terraform creates the infrastructure so you can observe provisioner behavior. For a production EC2 bootstrap, prefer an image-building process, `user_data`, cloud-init, or a configuration-management tool.
+
+* `local-exec` runs on the machine executing Terraform.
+* `remote-exec` runs commands on a remote object and needs connectivity and authentication.
+* Creation-time provisioners run after creation.
+* Destroy-time provisioners run before deletion.
+
+</details>
+
+1. Configure the AWS provider for `us-east-1`.
+2. Declare required string variables:
+   * `key_pair_name`
+   * `private_key_path`
+   * `allowed_ssh_cidr`
+3. Read the default VPC and the subnets that belong to it.
+   * Select one subnet deterministically by sorting the returned subnet IDs and using the first element.
+4. Discover the latest available Amazon Linux 2023 AMI.
+   * Restrict the owner to Amazon.
+   * Filter for the Amazon Linux 2023 name pattern and the `available` state.
+5. Create one security group in the default VPC.
+6. Create standalone `aws_vpc_security_group_ingress_rule` resources for:
+   * SSH on port 22 from `var.allowed_ssh_cidr`.
+   * HTTP on port 80 from `0.0.0.0/0`.
+7. Create an `aws_vpc_security_group_egress_rule` allowing outbound IPv4 traffic.
+8. Create one `t3.micro` EC2 instance in a default subnet with a public IPv4 address.
+   * Use the discovered AMI and selected subnet.
+   * Attach the security group and the configured EC2 key pair.
+
+Do not mix standalone security-group rule resources with inline `ingress` or `egress` blocks on the same security group.
+
+Create a non-committed `personal.auto.tfvars`:
+
+```hcl
+key_pair_name    = "your-key-pair-name"
+private_key_path = "/absolute/path/outside-the-repository/key.pem"
+allowed_ssh_cidr = "YOUR.PUBLIC.IP.ADDRESS/32"
+```
+
+Confirm it is ignored, then run:
+
+```bash
+terraform init
+terraform fmt
+terraform validate
+terraform plan
+```
+
+Confirm:
+
+* Terraform proposes exactly five resources: one EC2 instance, one security group, two ingress rules, and one egress rule.
+* SSH accepts only your `/32` CIDR.
+* The private-key path and key contents are not part of the repository.
+* The selected AMI and subnet belong to `us-east-1`.
+
+Do not apply yet. Add the provisioners in Part 2 before creating the instance.
+
+</details>
+
+<details>
+<summary><strong>Part 2: Add Provisioners, Deploy, and Verify</strong></summary>
+
+9. Add a `remote-exec` provisioner to the EC2 instance.
+   * Place its `connection` block inside that provisioner.
+   * Set the connection type to SSH and the user to `ec2-user`.
+   * Read the private key with `file(var.private_key_path)` and use `self.public_ip` as the host.
+   * Install Nginx with `dnf` and enable and start it with `systemctl`.
+10. Add a creation-time `local-exec` provisioner.
+    * Write the created instance's public IP to `server_info.txt` on the Terraform operator's machine.
+    * Use `self.public_ip`; make the creation record replace any older contents in that file.
+11. Add a destroy-time `local-exec` provisioner.
+    * Set `when = destroy`.
+    * Append a message containing `self.id` to `server_info.txt` so the creation record remains visible.
+12. Output the HTTP URL as `application_url`.
+
+Run:
+
+```bash
+terraform fmt
+terraform validate
+terraform plan
+```
+
+Provisioners do not appear as separate resources in the plan. Confirm that the plan still proposes the same five AWS resources, then review and run:
+
+```bash
+terraform apply
+terraform output -raw application_url
+```
+
+Inspect `server_info.txt` and open the URL. Confirm:
+
+* The local file contains the instance's public IP.
+* Nginx responds through the output URL.
+* The local file and remote Nginx installation were produced in different execution environments.
+
+</details>
+
+<details>
+<summary><strong>Part 3: Compare Default Failure with on_failure = continue</strong></summary>
+
+Perform both stages below so you observe the difference rather than only reading about it.
+
+**Stage A: Default failure behavior**
+
+1. Add an invalid command to the end of the `remote-exec` inline list:
+
+```hcl
+"command-that-does-not-exist"
+```
+
+2. Do not set `on_failure`; its default value is `fail`.
+3. Force the creation-time provisioner to run on a replacement instance:
+
+```bash
+terraform plan -replace=aws_instance.web_server
+terraform apply -replace=aws_instance.web_server
+```
+
+The apply should fail when the invalid command runs. Run a normal `terraform plan` and confirm that Terraform proposes replacing the instance because the failed creation-time provisioner left it tainted.
+
+**Stage B: Continue after failure**
+
+4. Keep the invalid command and set this inside `remote-exec`:
+
+```hcl
+on_failure = continue
+```
+
+5. Request replacement again so the creation-time provisioner reruns:
+
+```bash
+terraform plan -replace=aws_instance.web_server
+terraform apply -replace=aws_instance.web_server
+```
+
+Terraform should report the failed command as a warning, finish the apply, and leave the new instance untainted. Run a normal plan and expect no changes.
+
+Remove the invalid command and the `on_failure` override. Run another normal plan and expect no changes because changing only a creation-time provisioner does not automatically rerun it on an existing instance.
+
+</details>
+
+<details>
+<summary><strong>Part 4: Observe the Destroy-Time Provisioner</strong></summary>
+
+Keep the complete EC2 resource block and restore the valid provisioner configuration before cleanup. Inspect the creation record in `server_info.txt`, then run:
+
+```bash
+terraform destroy
+```
+
+Watch `server_info.txt` during the operation. The destroy-time provisioner should append its message before Terraform reports that the EC2 instance was destroyed.
+
+A destroy-time provisioner does not run if its entire resource block is removed from configuration before destruction.
+
+Confirm that the file contains both the original creation record and the appended destruction record.
+
+</details>
+
+## Design Reflection
+
+Before opening the explanation, answer these questions:
+
+1. Where does `local-exec` run, and where does `remote-exec` run?
+2. Why does `remote-exec` need a connection block while `local-exec` does not?
+3. Why are provisioners considered a last resort?
+4. What risk does `on_failure = continue` introduce?
+5. Why must you request replacement to repeat a creation-time provisioner?
+6. What happens to a destroy-time provisioner if the complete resource block is removed first?
+
+<details>
+<summary>Review the design questions and answers</summary>
+
+1. `local-exec` runs where Terraform runs; `remote-exec` runs commands on the remote target.
+2. Terraform needs remote connectivity and authentication details to reach the instance through SSH.
+3. Terraform cannot model, diff, or reverse their side effects as reliably as provider-managed resources or image/user-data workflows.
+4. Terraform can report a successful apply even though required machine configuration is incomplete.
+5. Creation-time provisioners run as part of resource creation, not on every plan or apply.
+6. Terraform no longer has the destroy-time provisioner configuration, so it cannot execute it.
+
+The goal is to understand provisioner behavior and risk, not to treat provisioners as the normal way to configure servers.
+
+</details>
+
+## Cleanup
+
+Part 4 performs the infrastructure cleanup. Confirm the instance, security group, and standalone rules are deleted. Remove `server_info.txt` and `personal.auto.tfvars`. Keep the private key outside the repository.
+
+Run `terraform state list` and confirm that the lab has no remaining managed instances.
+
+## Exam Takeaways
+
+<details>
+<summary>Review the exam takeaways</summary>
+
+* `remote-exec` requires connection information.
+* `self.public_ip` refers to the current resource instance.
+* Failed creation-time provisioners taint the resource by default.
+* `on_failure = continue` warns and continues.
+* Destroy-time provisioners run before destruction, not afterward.
+* Prefer declarative and provider-native alternatives to provisioners.
+
+</details>

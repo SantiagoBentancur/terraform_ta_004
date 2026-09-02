@@ -1,127 +1,235 @@
-# 🛠️ Lab 5 The Automated Network Topology (Advanced)
-
-## Concepts to Practice
-* `for_each` loops
-* `local` variables
-* String manipulation functions: `lower()`, `trimspace()`, `replace()`
-* Nested Data Structures: `map(object({}))`
-
----
+# Lab 5: Stable VPC Identities with `for_each`
 
 ## Objective
-Deploy a series of isolated AWS Virtual Private Clouds (VPCs) dynamically based on a complex nested configuration map, while automatically sanitizing messy human input errors using standard string functions and local variables.
 
----
+Rebuild the VPC scenario from Lab 4 using `for_each` instead of `count`. The environment map will keep the same keys and object attributes, but each map key will now become the identity of its matching VPC. Add `development` again and compare the plan with Lab 4: Terraform should propose one new VPC without changing the addresses of `production` or `staging`.
 
-## The Requirements
+<details>
+<summary><strong>Santiago's Implementation</strong></summary>
 
-### 1. The Human Map Variable
-Create a map of objects variable named `network_environments`. It contains raw, unformatted target environments as keys and their corresponding CIDR blocks as values. Deliberately use messy formatting (uppercase, spaces, hyphens) to simulate bad user input.
+> **Status:** Completed.
 
-```hcl
-variable "network_environments" {
-  type = map(object({
-    cidr = string
-  }))
-  default = {
-    "STAGE-environment "  = { cidr = "10.1.0.0/16" }
-    "PROD_Cluster-North " = { cidr = "10.2.0.0/16" }
-  }
-}
-```
+**[View my Terraform solution](./lab_5.tf)**
 
-### 2. The Local Variable Sanitizer (Functions Prep)
-AWS requires resource names to be lowercase and free of spaces. Create a `locals` block that uses a `for` expression to clean up the keys:
-* Use `lower()` to make the environment names lowercase.
-* Use `trimspace()` to remove trailing spaces.
-* Use `replace()` to convert hyphens into clean underscores (`_`).
-* Keep the data objects intact using the `=> v` assignment pointer.
+When completed, this implementation should:
 
-### 3. The `aws_vpc` Resource via `for_each`
-* Instead of `count`, use `for_each` pointing to your sanitized local map (`local.clean_environments`).
-* Set the `cidr_block` argument using the object values via `each.value.cidr`.
-* In the `tags`, use the native `each.key` context to name your VPCs cleanly.
+* Reuse the map-of-objects data model from Lab 4.
+* Create one VPC for every map element with `for_each`.
+* Use environment names as resource instance identities.
+* Demonstrate how adding one key affects only its matching VPC.
 
----
+Validation commands:
 
-## Key Architectural Features
-1. **Input Sanitization (`locals`):** Decouples human-facing input variables from strict cloud provider naming constraints by processing data dynamically before resource execution.
-2. **Identity-Based Scaling (`for_each`):** Replaces `count` to track resources by explicit string keys (e.g., `stage_environment`) rather than integer array positions, making the infrastructure completely immune to middle-list deletion shifts.
-3. **Object Expansion:** Uses `map(object)` schemas to attach multiple configuration parameters to a single environment key, allowing future expansion without rewriting the core loop logic.
-
----
-
-## Terraform Code (`lab_5.tf`)
-
-```hcl
-provider "aws" {
-  region = "us-east-1"
-}
-
-# 1. Variable with messy, human-typed keys
-variable "network_environments" {
-  type = map(object({
-    cidr = string
-  }))
-  default = {
-    "STAGE-environment"   = { cidr = "10.1.0.0/16" }
-    "PROD_Cluster-North " = { cidr = "10.2.0.0/16" }
-  }
-}
-
-# 2. Local block to clean strings while preserving data objects
-locals {
-  clean_environments = {
-    for k, v in var.network_environments : replace(trimspace(lower(k)), "-", "_") => v
-  }
-}
-
-# 3. Output to audit the data transformation
-output "env" {
-  value = local.clean_environments
-}
-
-# 4. Target VPC deployment using for_each
-resource "aws_vpc" "main" {
-  for_each         = local.clean_environments
-  
-  cidr_block       = each.value.cidr
-  instance_tenancy = "default"
-
-  tags = {
-    Name = "vpc-${each.key}"
-  }
-}
-```
-
----
-
-## Step-by-Step Implementation Guide
-
-Follow these steps to validate how `for_each` parses sanitized data structures:
-
-#### Step 1: Initialize the Working Directory
-Prepare your local terminal directory so that Terraform can fetch the necessary AWS provider binaries.
 ```bash
-terraform init
-```
-
-#### Step 2: Validate Data Transformation via Outputs
-Before checking the resource creation, ensure your local block correctly transformed the messy strings into clean keys. 
-* Execute `terraform apply` or `terraform plan` and check the `env` output block.
-* You should see exactly this transformation map:
-  ```json
-  {
-    "stage_environment"  = { cidr = "10.1.0.0/16" }
-    "prod_cluster_north" = { cidr = "10.2.0.0/16" }
-  }
-  ```
-
-#### Step 3: Execute and Validate State Targets
-Verify how `for_each` maps the resources to your clean string keys rather than integers.
-```bash
+terraform fmt -check
+terraform validate
 terraform plan
 ```
-* **Verify Resource Identifiers:** Inspect your terminal plan log carefully. You will see that the VPCs are registered permanently in state under their explicit string identities, rendering them completely immune to array shifts:
-  * `aws_vpc.main["stage_environment"]`
-  * `aws_vpc.main["prod_cluster_north"]`
+
+</details>
+
+## Concepts to Practice
+
+* Declaring a `map(object(...))`
+* Creating keyed resource instances with `for_each`
+* Reading the current map element with `each.key` and `each.value`
+* Comparing numeric and key-based resource addresses
+* Transforming a map with a `for` expression in an operational scenario
+* Naming a transformed value with `locals`
+
+## Prerequisites
+
+* Review [`for_each`](../../README.md#the-for_each-solution), [`for` Expressions](../../README.md#for-expressions), [Local Values](../../README.md#local-values-locals), and [String and Conversion Functions](../../README.md#string-and-conversion-functions).
+* Configure AWS credentials with permission to create and delete VPCs.
+
+> **Cost Warning:** This lab creates two VPCs. The `development` experiment is plan-only and must not be applied.
+
+## Step-by-Step Requirements
+
+Build the configuration in `lab_5.tf` in the order shown below. Do not open or copy another solution first.
+
+<details>
+<summary><strong>Part 1: Rebuild the Lab 4 VPCs with `for_each`</strong></summary>
+
+<details>
+<summary>From numeric positions to map keys</summary>
+
+Lab 4 converted the environment map into ordered key and value lists because `count` identifies resource instances by numeric position. `for_each` can consume the map directly. Terraform then exposes the current key as `each.key` and its associated object as `each.value`.
+
+| Map key | `each.key` | `each.value` | Resource address |
+|---|---|---|---|
+| `production` | `production` | Production object | `aws_vpc.environment["production"]` |
+| `staging` | `staging` | Staging object | `aws_vpc.environment["staging"]` |
+
+This version does not need `keys()`, `values()`, `count`, or `count.index`. The environment name itself identifies the resource instance.
+
+</details>
+
+1. Configure AWS for `us-east-1`.
+2. Declare `environments` using the same object type and default values as Lab 4:
+   * Each object contains `cidr` as a string and `priority` as a number.
+   * `staging` uses CIDR `10.1.0.0/16` and priority `2`.
+   * `production` uses CIDR `10.2.0.0/16` and priority `1`.
+3. Create `aws_vpc.environment`.
+   * Use the environment map directly with `for_each`.
+   * Read the CIDR from the current object.
+   * Set `instance_tenancy` to `default`.
+   * Add the following tags:
+     * `Name`: prefix the current environment key with `vpc-`.
+     * `Environment`: use the current environment key.
+     * `Priority`: convert the current object's numeric priority to a string.
+     * `ManagedBy`: set it to `Terraform`.
+
+Run:
+
+```bash
+terraform init
+terraform fmt
+terraform validate
+terraform plan
+```
+
+Confirm that:
+
+* The plan proposes exactly two VPCs.
+* The addresses contain `"production"` and `"staging"`, not `[0]` and `[1]`.
+* Each environment key remains paired with the correct CIDR and priority.
+
+</details>
+
+<details>
+<summary><strong>Part 2: Apply and Inspect the Key-Based Addresses</strong></summary>
+
+Apply the default configuration and inspect the state:
+
+```bash
+terraform apply
+terraform state list
+terraform state show 'aws_vpc.environment["production"]'
+terraform state show 'aws_vpc.environment["staging"]'
+```
+
+Confirm that the state addresses use the two environment names and that the attributes and tags match their corresponding objects.
+
+</details>
+
+<details>
+<summary><strong>Part 3: Add `development` and Observe Key-Based Behavior</strong></summary>
+
+Temporarily add the same element used in the Lab 4 experiment:
+
+```hcl
+development = {
+  cidr     = "10.0.0.0/16"
+  priority = 3
+}
+```
+
+Run `terraform plan`, but do not apply it.
+
+Confirm that:
+
+* Terraform proposes creating `aws_vpc.environment["development"]`.
+* The existing `production` and `staging` addresses remain unchanged.
+* The summary reports `1 to add, 0 to change, 0 to destroy`.
+
+After inspecting the plan, remove the temporary `development` element. Run `terraform plan` again and confirm that the configuration returns to no changes.
+
+</details>
+
+<details>
+<summary><strong>Part 4: Normalize Keys Before They Become Resource Identities</strong></summary>
+
+During a routine change, a teammate adds `Production` without noticing that `production` already exists. Because `for_each` keys are case-sensitive, Terraform treats them as two different resource identities. The plan keeps `aws_vpc.environment["production"]` and proposes creating another VPC at `aws_vpc.environment["Production"]`. The team catches the duplicate during plan review and does not apply it.
+
+To prevent capitalization, surrounding spaces, and hyphens from producing inconsistent identities, the team decides to normalize all environment keys before supplying them to `for_each`. At the same time, a new QA environment arrives with the raw key `QA-environment `, but the project convention requires its identity to be `qa_environment`.
+
+Start with the original `production` and `staging` entries still applied.
+
+1. Declare local `clean_environments` using a map-producing `for` expression over `var.environments`.
+   * Convert every key to lowercase.
+   * Remove surrounding whitespace.
+   * Replace hyphens with underscores.
+   * Preserve the complete object associated with each key.
+2. Change the VPC resource so its `for_each` uses `local.clean_environments`.
+3. Output the normalized map as `normalized_environments` and add a description to the output.
+4. Run `terraform plan` before adding another environment. Confirm that adopting the normalization layer does not change the existing VPCs because `production` and `staging` already follow the convention.
+5. Add the new QA environment:
+
+```hcl
+"QA-environment " = {
+  cidr     = "10.3.0.0/16"
+  priority = 3
+}
+```
+
+The quoted QA key contains uppercase letters, a hyphen, and one trailing space.
+
+Run `terraform fmt`, `terraform validate`, and `terraform plan`. Do not apply the scenario plan.
+
+Confirm that:
+
+* The output contains `production`, `qa_environment`, and `staging`, even though the raw QA input uses `QA-environment `.
+* Every normalized key remains paired with its original CIDR and priority.
+* Terraform proposes creating only `aws_vpc.environment["qa_environment"]`.
+* The existing `production` VPC remains unchanged.
+* The existing `staging` VPC also remains unchanged.
+
+<details>
+<summary>Why the transformation does not create resources</summary>
+
+`for_each` does not require a `for` expression; Parts 1–3 use the original map directly. A `for` expression is useful when input data must be transformed before another part of the configuration consumes it.
+
+In this scenario, the `for` expression produces the normalized map, and the `locals` block gives that value the reusable name `clean_environments`. Neither operation creates a VPC. The resource-level `for_each` consumes that map and creates the separately addressed resource instances.
+
+</details>
+
+</details>
+
+## Design Reflection
+
+Before opening the explanation, answer these questions:
+
+1. Why are `keys()`, `values()`, and `count.index` unnecessary in the main exercise?
+2. What roles do `each.key` and `each.value` have?
+3. Why does adding `development` not shift the production or staging addresses?
+4. Does the normalization scenario's `for` expression create VPCs?
+5. When is transforming a map before using `for_each` useful?
+6. What can happen if two original keys normalize to the same result?
+
+<details>
+<summary>Review the answers</summary>
+
+1. `for_each` consumes the map directly and preserves its keys as resource identities.
+2. `each.key` provides the current environment name and identity; `each.value` provides its associated configuration object.
+3. Each existing instance retains its own string-key address, so adding another key creates a separate address.
+4. No. It transforms the example input map into another map value.
+5. When input keys or values must be normalized, filtered, or otherwise reshaped before resource creation.
+6. Terraform cannot construct a normal map with duplicate output keys unless the expression groups or otherwise resolves them.
+
+</details>
+
+## Cleanup
+
+Restore the original two-element `environments` map, confirm a normal plan has no infrastructure changes, and run:
+
+```bash
+terraform destroy
+terraform state list
+```
+
+Review the destroy plan before confirming it. The normalization scenario was not applied, so it creates no additional infrastructure to clean up.
+
+## Exam Takeaways
+
+<details>
+<summary>Review the exam takeaways</summary>
+
+* `for_each` accepts a map and creates resource instances addressed by its keys.
+* `each.key` and `each.value` refer to the current map element.
+* Adding one map key creates one new key-based resource address without shifting existing addresses.
+* A `for` expression transforms a collection; it does not create resources.
+* Local values give reusable names to expressions and cannot be overridden by callers.
+* Normalize keys before initial resource creation when those normalized keys will become resource identities.
+
+</details>

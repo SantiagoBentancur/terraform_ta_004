@@ -2,36 +2,46 @@ provider "aws" {
   region = "us-east-1"
 }
 
-# 1. The "Production Database" (Protected)
-resource "aws_s3_bucket" "prod_db_backup" {
-  bucket_prefix = "critical-db-backup-"
+data "aws_caller_identity" "current" {}
 
+
+resource "aws_s3_bucket" "critical_archive" {
+
+  bucket = "terraform-associate-lab9-archive-${data.aws_caller_identity.current.account_id}"
   lifecycle {
-    # Hard safety lock to prevent accidental deletion
     prevent_destroy = true
   }
 }
 
-# 2. The App Server (Ignoring Manual Changes)
-resource "aws_instance" "app_server" {
-  ami           = "ami-0c7217cdde317cfec" # Standard Ubuntu AMI
-  instance_type = "t3.micro"
-  
-  # Explicitly wait for the backup bucket to exist before booting the server
-  depends_on = [aws_s3_bucket.prod_db_backup]
-
-  tags = {
-    Name = "frontend-app"
-  }
+resource "aws_s3_bucket" "service_logs" {
+  bucket = "terraform-associate-lab9-logs-${data.aws_caller_identity.current.account_id}"
 
   lifecycle {
-    # If someone manually adds a tag in the AWS Console, Terraform will not overwrite it
-    ignore_changes = [tags]
+    ignore_changes = [tags["OperationsNote"]]
   }
+
+  tags = {
+    Name           = "terraform-associate-lab9-logs-${data.aws_caller_identity.current.account_id}"
+    Environment    = "Prd"
+    OperationsNote = "Notes"
+    ManagedBy      = "Terraform"
+  }
+
+  depends_on = [aws_s3_bucket.critical_archive]
 }
 
-# 3. The State Refactor (Uncomment this during Phase 3)
-# moved {
-#   from = aws_instance.app_server
-#   to   = aws_instance.frontend_web_server
-# }
+output "critical_archive_bucket_name" {
+  description = "Name of the critical archive S3 bucket"
+  value       = aws_s3_bucket.critical_archive.bucket
+}
+
+output "service_logs_bucket_name" {
+  description = "Name of the application logs S3 bucket"
+  value       = aws_s3_bucket.service_logs.bucket
+}
+
+# Part 5
+moved {
+  from = aws_s3_bucket.application_logs
+  to   = aws_s3_bucket.service_logs
+}

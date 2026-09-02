@@ -1,70 +1,178 @@
-# 🛠️ Lab 1: The Informant Server (Dynamic Image & Mapping)
+# Lab 1: Dynamic AMI Discovery
 
 ## Objective
-Configure a foundational Terraform deployment that dynamically queries the cloud provider's marketplace for the latest operating system image and maps customized environment tags to the target deployment using structural map lookups.
 
-## Requirements
+Deploy one EC2 instance using an Amazon Linux 2023 AMI discovered at runtime. First, query and inspect an existing AMI through a data source. Then, use its ID to create a managed instance and expose useful results through outputs.
 
-### 1. Provider
-* Configure the HashiCorp AWS provider to target the standard `us-east-1` region.
+<details>
+<summary><strong>Santiago's Implementation</strong></summary>
 
-### 2. Variables
-* **`environment`**: Create a map variable named `environment` containing two distinct environment keys: `dev` mapping to `"Development"` and `prod` mapping to `"Production"`.
+> **Status:** Completed.
 
-### 3. Data Source
-* Use the `aws_ami` data source block to dynamically scan and isolate the latest official **Amazon Linux 2** operating system image without relying on hardcoded static Image IDs.
+**[View my Terraform solution](./lab_1.tf)**
 
-### 4. EC2 Resource (`aws_instance`)
-* **Compute Engine**: Provision a baseline virtual machine (`aws_instance`) running a standard cloud-tier size specification (`t3.micro`).
-* **Dynamic Mapping**: In the `tags` configuration block, assign the value of the `Name` attribute by extracting the associated key value string from the `environment` map passing the exact index value (`"prod"`).
+When completed, this implementation should:
 
----
+* Configure AWS without embedding credentials.
+* Select a current Amazon Linux 2023 AMI dynamically.
+* Create one tagged EC2 instance from the selected AMI.
+* Expose the selected AMI ID and created instance ID.
 
-## Key Architectural Features
-1. **Dynamic AMI Discovery:** Eradicates configuration obsolescence by allowing the orchestration layer to dynamically locate the newest updated kernel patches at runtime.
-2. **Key-Value Resource Tagging:** Uses decoupled configuration variables to insulate resource identifiers from hardcoded text strings, enabling rapid environment cloning.
-3. **Output Auditing:** Employs an extraction interface layer (`output`) to verify exactly what image identity variables have been located by the search data structures during evaluation phases.
+Validation commands:
 
----
+```bash
+terraform fmt -check
+terraform validate
+terraform plan
+```
 
-## Terraform Code (`lab_1.tf`)
+</details>
 
-```hcl
-provider "aws" {
-  region = "us-east-1"
-}
+## Concepts to Practice
 
-# 1. Dynamic Data Source for AMI Discovery
-data "aws_ami" "amazon_linux_2" {
-  most_recent = true
-  owners      = ["amazon"]
-  filter {
-    name   = "name"
-    values = ["amzn2-ami-hvm-*-x86_64-gp2"]
-  }
-}
+* Configuring a provider
+* Declaring and referencing an input variable
+* Reading existing information with a data source
+* Creating infrastructure with a resource block
+* Creating an implicit dependency through an attribute reference
+* Exposing values with outputs
 
-# 2. Output Block to audit the resolved AMI ID
-output "ami_encontrada_id" {
-  value = data.aws_ami.amazon_linux_2.id
-}
+## Prerequisites
 
-# 3. Map Variable for Environment Identifiers
-variable "environment" {
-  type        = map(string)
-  description = "my env"
-  default = {
-    dev  = "Development"
-    prod = "Production"
-  }
-}
+* Review [Providers](../../README.md#providers), [Variables and Output Values](../../README.md#variables-and-output-values), [Data Sources](../../README.md#data-sources-data-blocks), and [Output Values](../../README.md#output-values).
+* Configure AWS credentials outside Terraform with permission to create and terminate EC2 instances in `us-east-1`.
 
-# 4. Target Compute Resource Provisioning
-resource "aws_instance" "ec2_lab1" {
-  ami           = data.aws_ami.amazon_linux_2.id
-  instance_type = "t3.micro"
-  tags = {
-    # Extracting the "Production" string from the map using the "prod" key
-    Name = var.environment["prod"]
-  }
-}
+> **Cost Warning:** This lab creates an EC2 instance. Complete the cleanup procedure when finished.
+
+## Step-by-Step Requirements
+
+Build the configuration in `lab_1.tf` in the order shown below. Do not open or copy another solution first.
+
+<details>
+<summary><strong>Part 1: Discover and Inspect the AMI</strong></summary>
+
+<details>
+<summary>Data source and resource overview</summary>
+
+A data source reads information available through a provider. A managed resource asks the provider to create or manage an object. Reading an AMI does not make Terraform responsible for the AMI lifecycle.
+
+When a resource argument references a data-source attribute, Terraform can determine that the lookup must finish before it configures the resource.
+
+</details>
+
+1. Configure the AWS provider to use `us-east-1`.
+2. Declare a string variable named `environment`.
+   * Add a useful description.
+   * Default it to `development`.
+3. Declare an `aws_ami` data source named `amazon_linux_2023`.
+   * Select the most recent matching image.
+   * Restrict the owner to Amazon.
+   * Filter the name with `al2023-ami-2023.*-kernel-6.1-x86_64`.
+   * Accept only images whose state is `available`.
+4. Declare an output named `selected_ami_id` with a description.
+
+Run:
+
+```bash
+terraform init
+terraform fmt
+terraform validate
+terraform plan
+```
+
+Confirm that Terraform reads one AMI and can determine `selected_ami_id`. It must not propose creating or owning the AMI.
+
+</details>
+
+<details>
+<summary><strong>Part 2: Create and Test the EC2 Instance</strong></summary>
+
+5. Create one `aws_instance` resource named `application`.
+   * Use the ID returned by the AMI data source.
+   * Use `t3.micro` as the instance type.
+   * Add `Name`, `Environment`, and `ManagedBy` tags.
+   * Build `Name` as `<environment>-application-server`.
+6. Declare a described output named `instance_id` containing the instance ID.
+
+Run:
+
+```bash
+terraform plan
+```
+
+Before applying, confirm:
+
+* The plan proposes exactly one EC2 instance.
+* Its AMI comes from the data-source reference rather than a copied AMI ID.
+* The tags contain `development-application-server`, `development`, and `Terraform`.
+* The summary reports `1 to add, 0 to change, 0 to destroy`.
+
+After reviewing the complete plan, run:
+
+```bash
+terraform apply
+terraform output
+terraform state list
+```
+
+Confirm that state contains the EC2 resource but not a managed AMI resource.
+
+</details>
+
+<details>
+<summary><strong>Part 3: Change the Input Without Editing the Default</strong></summary>
+
+Preview a different environment through the CLI:
+
+```bash
+terraform plan -var='environment=staging'
+```
+
+Confirm that Terraform proposes changing the instance tags rather than creating a second instance. Do not apply this experiment. Run a normal plan afterward and expect no changes.
+
+</details>
+
+## Design Reflection
+
+Before opening the explanation, answer these questions:
+
+1. What is the lifecycle difference between the AMI data source and the EC2 resource?
+2. Why is selecting an AMI dynamically preferable to copying a temporary AMI ID?
+3. What dependency is created by referencing the AMI ID from the instance?
+4. Does changing `environment` create another Terraform instance address?
+5. Which values are known during planning, and which may remain known only after apply?
+
+<details>
+<summary>Review the answers</summary>
+
+1. The data source reads an existing AMI; the resource creates and manages the EC2 instance.
+2. The filter can select a current matching image without manually updating a Region-specific identifier.
+3. Terraform creates an implicit dependency from the EC2 resource to the AMI lookup.
+4. No. The address remains `aws_instance.application`; only configured attributes change.
+5. The selected AMI can normally be resolved during planning, while the new instance ID is assigned by AWS during apply.
+
+</details>
+
+## Cleanup
+
+Run a normal plan first so cleanup uses the original default, then run:
+
+```bash
+terraform destroy
+terraform state list
+```
+
+Review the destroy plan before confirming it. State should be empty afterward.
+
+## Exam Takeaways
+
+<details>
+<summary>Review the exam takeaways</summary>
+
+* A data source reads existing information but does not manage that object's lifecycle.
+* A resource block manages infrastructure through a provider.
+* Attribute references create implicit dependencies.
+* Input variables parameterize configuration without duplicating resources.
+* Outputs expose selected values from the root module.
+
+</details>
