@@ -1,6 +1,24 @@
-# Terraform Core Concepts and Commands Wiki
+# Terraform Associate: From Theory to Practice
 
-## Table of Contents
+## About This Project
+
+My learning philosophy is simple: I learn best by doing. After passing the Terraform Associate exam, I created this project to turn certification knowledge into hands-on infrastructure experience and develop a deeper understanding through experimentation.
+
+By sharing what I learn, I hope to contribute something useful to the community and help others practice Terraform. Feedback, corrections, and suggestions are always welcome.
+
+The goal is not to present a finished course or claim that every section is final; **it is a transparent record of deliberate, ongoing practice.**
+
+This is an AI-assisted project. I use OpenAI Codex as a collaborative tool to review documentation, identify inconsistencies, discuss alternatives, and help organize the material. I apply my own judgment to the suggestions, make the final decisions, implement the lab solutions, and validate the behavior. AI-generated output is treated as something to review, not as automatically correct.
+
+> **Project Status:** Ongoing. Labs 1–9 are complete, Lab 10 is in progress, and Labs 11–16 are planned and under revision. Visitors are welcome to explore the completed work and follow the project as it develops.
+
+## Project Structure
+
+- **Study guide:** The main README organizes the Terraform concepts and reference material covered throughout the project.
+- **Hands-on labs:** Focused exercises under `practic/` turn individual concepts into practical AWS and Terraform experience.
+- **Architecture checkpoints:** Larger projects combine multiple concepts to design and build more complete infrastructure.
+
+## Terraform Study Guide
 
 ### Foundations and Configuration
 
@@ -87,7 +105,7 @@
 
 ### Practical Exercises
 
-- [Terraform Infrastructure Labs](#terraform-infrastructure-labs-master-index)
+- [Practical Terraform Exercises](#practical-terraform-exercises)
 
 ---
 
@@ -3131,118 +3149,105 @@ Policies are grouped into **policy sets**, which can be assigned to selected wor
 
 ---
 
-# Terraform Infrastructure Labs: Master Index
+# Practical Terraform Exercises
 
-Welcome to the practical lab series for mastering Infrastructure as Code (IaC) with Terraform. This repository outlines the progression from foundational cloud provisioning to advanced enterprise architecture, safe state management, and dynamic looping mechanics.
+These exercises connect the study guide with observable Terraform behavior. Each lab focuses on a defined set of concepts, while the checkpoints combine several concepts in a larger design. The suggested reading is optional and points to the relevant sections of this guide.
 
----
-
-## Core Foundations
+## Labs
 
 ### [Lab 0: Terraform Workflow and Variable Precedence](practic/lab_0/lab_0.md)
 * **Objective:** Practice Terraform's file structure, CLI workflow, variable precedence, outputs, and state without creating cloud infrastructure.
 * **Concepts Covered:** `terraform_data`, `.tf` file organization, `terraform.tfvars`, custom `-var-file` values, `TF_VAR_*`, `-var`, outputs, and basic state inspection.
+* **Suggested Reading:** [How Terraform Works](#how-terraform-works-a-first-run), [Core CLI Commands](#core-cli-commands), and [Variables and Output Values](#variables-and-output-values).
 
 ### [Lab 1: Dynamic AMI Discovery](practic/lab_1/lab_1.md)
 * **Objective:** Deploy one EC2 instance using an Amazon Linux 2023 AMI discovered dynamically from AWS.
 * **Concepts Covered:** Provider configuration, a string input variable, the `aws_ami` data source, resource references, tags, and output values.
+* **Suggested Reading:** [Providers](#providers), [Resource Blocks and References](#resource-blocks-and-references), [Data Sources](#data-sources-data-blocks), and [Variables and Output Values](#variables-and-output-values).
 
 ### [Lab 2: Multiple S3 Buckets with `count`](practic/lab_2/lab_2.md)
 * **Objective:** Create three globally named S3 buckets from one resource block.
 * **Concepts Covered:** `aws_caller_identity`, `count`, `count.index`, `format()`, numeric resource addresses, and dynamic tags.
+* **Suggested Reading:** [Data Sources](#data-sources-data-blocks), [Essential Terraform Functions and Expressions](#essential-terraform-functions-and-expressions), and [The `count` Meta-Argument](#the-count-meta-argument).
 
 ### [Lab 3: Conditional Infrastructure](practic/lab_3/lab_3.md)
 * **Objective:** Change the number and size of EC2 instances with one Boolean input.
 * **Concepts Covered:** Conditional expressions, `tostring()`, map lookup, dynamic AMI discovery, and conditional `count`.
-
----
-
-## Advanced Data Structures and Looping
+* **Suggested Reading:** [Data Types](#data-types), [Conditional Expressions](#conditional-expressions), and [The `count` Meta-Argument](#the-count-meta-argument).
 
 ### [Lab 4: Understanding `count` with Map-Based Resources](practic/lab_4/lab_4.md)
 * **Objective:** Use `count` with map-based resources and observe how numeric positions behave when the map changes.
 * **Concepts Covered:** `map(object(...))`, `length()`, `keys()`, `values()`, alphabetical map-key ordering, and numeric resource addresses.
+* **Suggested Reading:** [Complex Data Types](#complex-data-types-object-and-set), [Collection Functions](#collection-functions), and [The Limitations of `count`](#limitations-of-count).
 
 ### [Lab 5: Stable VPC Identities with `for_each`](practic/lab_5/lab_5.md)
 * **Objective:** Normalize input keys and create VPC instances identified by stable string keys.
 * **Concepts Covered:** `for` expressions, local values, `for_each`, `each.key`, `each.value`, string normalization, and stable resource addresses.
+* **Suggested Reading:** [Local Values](#local-values-locals), [`for` Expressions](#for-expressions), and [`for_each` vs. `count`](#advanced-looping-for_each-vs-count).
 
 ### [Lab 6: Terraform Console and Collection Transformations](practic/lab_6/lab_6.md)
 * **Objective:** Use `terraform console` to inspect, transform, filter, flatten, merge, and convert local collection values without creating cloud resources.
 * **Concepts Covered:** `terraform console`, list-producing and map-producing `for` expressions, filtering, nested transformations, collection and string functions, and type conversion.
+* **Suggested Reading:** [Local Values](#local-values-locals), [Built-in Functions](#built-in-functions), and [`for` Expressions](#for-expressions).
 
 ### [Lab 7: Dynamic IAM Policy Statements](practic/lab_7/lab_7.md)
 * **Objective:** Refactor repeated IAM policy statements into a dynamic nested block and test changes through structured input data.
 * **Concepts Covered:** `map(object(...))`, IAM policy documents, `dynamic` blocks, nested `for_each`, `content`, and custom iterators.
+* **Suggested Reading:** [Complex Data Types](#complex-data-types-object-and-set), [`for_each` vs. `count`](#advanced-looping-for_each-vs-count), and [Dynamic Blocks](#dynamic-blocks).
 
 ### [Lab 8: Variable Validation, Preconditions, and IAM Users](practic/lab_8/lab_8.md)
 * **Objective:** Provision IAM users from validated structured input, reject duplicates, enforce a resource precondition, and export an ARN map.
 * **Concepts Covered:** Complex object types, type errors, multiple validation rules, `for_each`, `toset()`, lifecycle `precondition`, and output `for` expressions.
-
----
-
-## Operations, Guardrails, and Provisioning
+* **Suggested Reading:** [Input Variable Validation](#input-variable-validation), [Custom Conditions](#custom-conditions-precondition--postcondition), and [`for_each` vs. `count`](#advanced-looping-for_each-vs-count).
 
 ### [Lab 9: Lifecycle Guardrails and CLI Operations](practic/lab_9/lab_9.md)
 * **Objective:** Protect low-cost resources, apply a reviewed plan, inspect state, refactor an address, and request resource replacement.
 * **Concepts Covered:** Saved plans, `terraform show`, targeted `ignore_changes`, `prevent_destroy`, state inspection, `moved` blocks, `-replace`, and `terraform graph`.
+* **Suggested Reading:** [The `lifecycle` Meta-Argument](#the-lifecycle-meta-argument), [Saving and Inspecting Execution Plans](#saving-and-inspecting-execution-plans), [Terraform State Management Commands](#terraform-state-management-commands), and [State Refactoring](#state-refactoring-moved-blocks).
 
 ### [Lab 10: Provisioners and Connections](practic/lab_10/lab_10.md)
 * **Objective:** Compare local, remote, creation-time, and destroy-time provisioner behavior in a restricted EC2 exercise.
 * **Concepts Covered:** `local-exec`, `remote-exec`, SSH `connection` blocks, `self`, destroy-time provisioners, tainting, and `on_failure`.
+* **Suggested Reading:** [Provisioners](#provisioners-the-last-resort), [Resource Blocks and References](#resource-blocks-and-references), and [Terraform Security Primer](#terraform-security-primer).
 
----
+### [Lab 11: Reusable VPC Module and EC2 Consumer](practic/lab_11/lab_11.md)
+* **Objective:** Build a reusable VPC module with keyed public and private subnets, then consume its outputs from a root-module EC2 configuration.
+* **Concepts Covered:** Root and child modules, standard module structure, complex module inputs, module outputs, provider inheritance, `for_each`, and cross-module dependencies.
+* **Suggested Reading:** [Terraform Modules](#terraform-modules), [Complex Data Types](#complex-data-types-object-and-set), and [`for_each` vs. `count`](#advanced-looping-for_each-vs-count).
+
+### [Lab 12: Preconditions, Postconditions, and Check Blocks](practic/lab_12/lab_12.md)
+* **Objective:** Compare blocking lifecycle conditions with non-blocking check assertions without creating cloud infrastructure.
+* **Concepts Covered:** `precondition`, `postcondition`, `self`, `check`, assertion warnings, `can()`, and `regex()`.
+* **Suggested Reading:** [Custom Conditions](#custom-conditions-precondition--postcondition) and [Check Blocks and Continuous Validation](#check-blocks-and-continuous-validation).
+
+### [Lab 13: Import, Refactor, and Remove State](practic/lab_13/lab_13.md)
+* **Objective:** Import an existing S3 bucket, reconcile its configuration, rename its Terraform address, and hand management back outside Terraform.
+* **Concepts Covered:** `terraform import`, state inspection, `moved` blocks, `removed` blocks, configuration reconciliation, and remote-object identity.
+* **Suggested Reading:** [Configuration, State, and Remote Objects](#configuration-state-and-remote-objects), [Terraform Import](#terraform-import), [State Refactoring](#state-refactoring-moved-blocks), and [Removed Blocks](#removed-blocks).
+
+### [Lab 14: Remote S3 State, Locking, and Workspaces](practic/lab_14/lab_14.md)
+* **Objective:** Bootstrap an S3 backend, enable native state locking, and compare default and named workspace state paths.
+* **Concepts Covered:** Partial backend configuration, S3 state, `use_lockfile`, backend bootstrap, CLI workspaces, and workspace state isolation.
+* **Suggested Reading:** [Terraform Backend](#terraform-backend), [State Locking](#state-locking), [S3 Backend](#s3-backend), and [Terraform Workspaces](#terraform-workspaces-environment-management).
+
+### [Lab 15: Provider Aliases and Module Provider Mapping](practic/lab_15/lab_15.md)
+* **Objective:** Configure two AWS Regions and pass default and aliased provider configurations explicitly to a child module.
+* **Concepts Covered:** Provider requirements, default configurations, aliases, `configuration_aliases`, module `providers` maps, and the implied empty default.
+* **Suggested Reading:** [Multiple Provider Configurations](#multiple-provider-configurations) and [Terraform Modules](#terraform-modules).
+
+### [Lab 16: Sensitive, Ephemeral, and Write-Only Values](practic/lab_16/lab_16.md)
+* **Objective:** Send a sensitive ephemeral input to SSM Parameter Store through a write-only argument and rotate it without persisting the secret in Terraform.
+* **Concepts Covered:** `sensitive`, `ephemeral`, `value_wo`, write-only version arguments, secret rotation, and state inspection.
+* **Suggested Reading:** [Sensitive Input Variables and Outputs](#sensitive-input-variables-and-outputs), [Ephemeral Values and Write-Only Arguments](#ephemeral-values-and-write-only-arguments), and [Security Risks of State in Git](#security-risk-of-storing-terraform-state-in-git).
 
 ## Architecture Checkpoints
 
 ### [Checkpoint 1: Multi-AZ Web Compute Foundation](practic/checkpoint_1/checkpoint_1.md)
 * **Objective:** Build a resilient compute foundation by distributing EC2 instances across two Availability Zones and applying shared security and storage guardrails.
 * **Concepts Covered:** Dynamic AMIs, `for_each` Availability Zone placement, variable validation, `output` mapping with `for` expressions, shared security rules, and lifecycle guardrails.
-
----
-
-## Modular Architecture
-
-### [Lab 11: Reusable VPC Module and EC2 Consumer](practic/lab_11/lab_11.md)
-* **Objective:** Build a reusable VPC module with keyed public and private subnets, then consume its outputs from a root-module EC2 configuration.
-* **Concepts Covered:** Root and child modules, standard module structure, complex module inputs, module outputs, provider inheritance, `for_each`, and cross-module dependencies.
-
----
-
-## Advanced Validation
-
-### [Lab 12: Preconditions, Postconditions, and Check Blocks](practic/lab_12/lab_12.md)
-* **Objective:** Compare blocking lifecycle conditions with non-blocking check assertions without creating cloud infrastructure.
-* **Concepts Covered:** `precondition`, `postcondition`, `self`, `check`, assertion warnings, `can()`, and `regex()`.
-
----
-
-## State Storage and Resource Adoption
-
-### [Lab 13: Import, Refactor, and Remove State](practic/lab_13/lab_13.md)
-* **Objective:** Import an existing S3 bucket, reconcile its configuration, rename its Terraform address, and hand management back outside Terraform.
-* **Concepts Covered:** `terraform import`, state inspection, `moved` blocks, `removed` blocks, configuration reconciliation, and remote-object identity.
-
-### [Lab 14: Remote S3 State, Locking, and Workspaces](practic/lab_14/lab_14.md)
-* **Objective:** Bootstrap an S3 backend, enable native state locking, and compare default and named workspace state paths.
-* **Concepts Covered:** Partial backend configuration, S3 state, `use_lockfile`, backend bootstrap, CLI workspaces, and workspace state isolation.
-
----
-
-## Provider Architecture and Sensitive Data
-
-### [Lab 15: Provider Aliases and Module Provider Mapping](practic/lab_15/lab_15.md)
-* **Objective:** Configure two AWS Regions and pass default and aliased provider configurations explicitly to a child module.
-* **Concepts Covered:** Provider requirements, default configurations, aliases, `configuration_aliases`, module `providers` maps, and the implied empty default.
-
-### [Lab 16: Sensitive, Ephemeral, and Write-Only Values](practic/lab_16/lab_16.md)
-* **Objective:** Send a sensitive ephemeral input to SSM Parameter Store through a write-only argument and rotate it without persisting the secret in Terraform.
-* **Concepts Covered:** `sensitive`, `ephemeral`, `value_wo`, write-only version arguments, secret rotation, and state inspection.
-
----
-
-## Advanced Architecture
+* **Suggested Reading:** [`for_each` vs. `count`](#advanced-looping-for_each-vs-count), [Input Variable Validation](#input-variable-validation), [Resource Dependencies](#resource-dependencies), and [The `lifecycle` Meta-Argument](#the-lifecycle-meta-argument).
 
 ### [Checkpoint 2: Production-Grade Three-Tier Architecture](practic/checkpoint_2/checkpoint_2.md)
-* **Objective:** Build a modular, highly available three-tier AWS architecture with public load balancing, private application instances, and an isolated PostgreSQL database tier.
+* **Objective:** Build a modular three-tier AWS architecture across two Availability Zones, with public load balancing, private application instances, and an isolated PostgreSQL database tier.
 * **Concepts Covered:** Reusable modules, multi-AZ networking, public and private routing, NAT Gateway environment parity, security-group chaining, Auto Scaling, Systems Manager access, application bootstrap, ALB health checks, and RDS isolation.
+* **Suggested Reading:** [Terraform Modules](#terraform-modules), [Resource Dependencies](#resource-dependencies), [Terraform Backend](#terraform-backend), and [Terraform Security Primer](#terraform-security-primer).
