@@ -1,17 +1,16 @@
 
 variable "vpc_id" {
-  type = string
-}
-
-variable "vpc_cidr_block" {
-  type = string
+  description = "ID of the VPC where the security groups are created."
+  type        = string
 }
 
 variable "env" {
-  type = string
+  description = "Deployment environment used for naming and tagging security resources."
+  type        = string
 }
 
 variable "project" {
-  type    = string
-  default = "checkpoint-2"
+  description = "Project name used for naming and tagging security resources."
+  type        = string
+  default     = "checkpoint-2"
 }
