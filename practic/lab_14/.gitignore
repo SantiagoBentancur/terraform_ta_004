@@ -1,0 +1,4 @@
+workload/backend.hcl
+**/.terraform/
+**/*.tfstate
+**/*.tfstate.*
