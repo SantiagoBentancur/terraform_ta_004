@@ -7,6 +7,8 @@ application and database layers. This checkpoint evaluates module composition,
 networking, security boundaries, load balancing, Auto Scaling, and environment-specific
 configuration.
 
+> **Status:** In progress. The networking, security, load-balancing, and compute foundations are under active development. The database tier and end-to-end validation are not yet complete, and the implementation and documentation may change.
+
 ### Learning Objectives
 
 By the end of this checkpoint, you should be able to:
