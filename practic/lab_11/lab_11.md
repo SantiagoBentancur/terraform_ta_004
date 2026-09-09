@@ -9,7 +9,7 @@ In this lab, you will move that network design behind a reusable child-module in
 <details>
 <summary><strong>Santiago's Implementation</strong></summary>
 
-> **Status:** Not started. Complete the requirements below before adding your solution.
+> **Status:** Completed.
 
 Root module:
 
@@ -69,10 +69,13 @@ lab_11/
 ├── lab_11.md
 └── modules/
     └── network/
+        ├── README.md
         ├── main.tf
         ├── variables.tf
         └── outputs.tf
 ```
+
+`modules/network/README.md` documents the child module's public interface: its input names, Terraform types, default values, required subnet maps, outputs, and provider-configuration boundary. Use it as the reference while declaring the variables and outputs in the module.
 
 ## Step-by-Step Requirements
 
@@ -90,18 +93,37 @@ The working directory containing the main configuration is the root module. A mo
 
 </details>
 
-1. In `modules/network/`, declare the AWS provider requirement without adding a `provider "aws"` configuration.
-2. Declare inputs:
-   * `project_name`
-   * `environment`
-   * `vpc_cidr`
-   * `public_subnets` as a map of objects containing `cidr` and `availability_zone`
-   * `private_subnets` with the same type
+1. In `modules/network/main.tf`, declare the AWS provider requirement without adding a `provider "aws"` configuration:
+
+   ```hcl
+   terraform {
+     required_providers {
+       aws = {
+         source = "hashicorp/aws"
+       }
+     }
+   }
+   ```
+
+   The child module declares which provider it needs, while the root module later supplies the configured provider. Do not add credentials or a Region in the child module.
+2. In `modules/network/variables.tf`, declare the five input variables described in the [network module input contract](./modules/network/README.md#input-contract):
+   * `project_name` as a `string` with default `"lab_11"`.
+   * `environment` as a `string` with default `"dev"`.
+   * `vpc_cidr` as a `string` with default `"10.0.0.0/24"`.
+   * `public_subnets` as a required `map(object({ cidr = string, availability_zone = string }))`.
+   * `private_subnets` as a required map with the same object type.
+
+   The two subnet maps have no defaults because the caller must provide the actual subnet layout. Keep the Terraform types in `variables.tf` aligned with the documented interface.
+
+   > **Pause and think:** Are these variables inputs to the child module or outputs from it? Which configuration supplies their values, and where would you look for values leaving the module?
+   >
+   > **Key idea:** The `variable` blocks define the child module's inputs. The root module supplies those values in its `module "network"` block. The child module's `output` blocks define the values that the root module can consume through references such as `module.network.vpc_id`.
+
 3. Create:
-   * One VPC and Internet Gateway.
-   * Public and private subnets using `for_each`.
-   * One public route table with an Internet Gateway route.
-   * One isolated private route table without an internet route.
+   * One VPC using `cidr_block = var.vpc_cidr` and one Internet Gateway.
+   * Public and private subnets using `for_each`. The child module should read each object's `cidr` and `availability_zone` attributes; the root module supplies the actual values in Part 2.
+   * One public route table associated with the public subnets. Add a `0.0.0.0/0` route from that table to the Internet Gateway so those subnets have a path to the internet.
+   * One private route table associated with the private subnets. Do not add an internet route or NAT Gateway; those subnets intentionally have no outbound internet path in this lab.
    * Associations for every subnet.
 4. Enable public-IP assignment only on public subnets.
 5. Output:
@@ -109,7 +131,9 @@ The working directory containing the main configuration is the root module. A mo
    * `public_subnet_ids` as a map keyed by input names
    * `private_subnet_ids` with the same pattern
 
-The module intentionally has no NAT Gateway; private subnets have no outbound internet path.
+   > **Hint:** Because the subnet resources use `for_each`, `aws_subnet.public_subnets` and `aws_subnet.private_subnets` are maps of resource instances rather than single objects. Use a map-producing `for` expression in each output: keep the instance key and return that instance's `.id` as the value. Make sure the private output iterates over the private subnet resource collection.
+
+The route table is not a label that automatically makes a subnet public or private: the subnet's association and routes determine its path. In this lab, a subnet is considered public because it is associated with the table whose default route points to the Internet Gateway. A private subnet is associated with the table that has no such route. The module intentionally has no NAT Gateway, so private subnets cannot reach the internet from this design.
 
 Format the child module before continuing:
 
@@ -128,8 +152,34 @@ At this point, do not run the child directory as an independent deployment. It i
    * Declare the root variables in `variables.tf`.
    * Configure the AWS provider in `main.tf`.
    * Call the module with `source = "./modules/network"`.
-   * Pass two public and two private subnet definitions across two Availability Zones.
-7. Expose the module's VPC ID and both subnet maps through root outputs.
+   * Pass two public and two private subnet definitions across two Availability Zones. Use the following CIDRs inside the default `10.0.0.0/24` VPC:
+
+     ```hcl
+     public_subnets = {
+       public_a = {
+         cidr              = "10.0.0.0/26"
+         availability_zone = "us-east-1a"
+       }
+       public_b = {
+         cidr              = "10.0.0.64/26"
+         availability_zone = "us-east-1b"
+       }
+     }
+
+     private_subnets = {
+       private_a = {
+         cidr              = "10.0.0.128/26"
+         availability_zone = "us-east-1a"
+       }
+       private_b = {
+         cidr              = "10.0.0.192/26"
+         availability_zone = "us-east-1b"
+       }
+     }
+     ```
+
+     These values belong in the root module's input configuration, such as `terraform.tfvars`; the child module receives them through its `module "network"` block.
+7. Expose the module's values through root outputs named `vpc_id`, `public_subnet_ids`, and `private_subnet_ids`.
 
 Run:
 
@@ -143,13 +193,14 @@ terraform plan
 Inspect addresses such as:
 
 ```text
-module.network.aws_subnet.public["public_a"]
-module.network.aws_subnet.private["private_b"]
+module.network.aws_subnet.public_subnets["public_a"]
+module.network.aws_subnet.private_subnets["private_b"]
 ```
 
 Before applying, confirm:
 
 * The plan contains one VPC, one Internet Gateway, two public subnets, and two private subnets.
+* The plan contains one public route table, one private route table, and one association for each subnet.
 * Each subnet address uses its map key rather than a numeric index.
 * Only the public route table has a default route to the Internet Gateway.
 * The child module contains a provider requirement but no configured `provider "aws"` block.
@@ -160,22 +211,25 @@ Before applying, confirm:
 <summary><strong>Part 3: Add and Deploy the EC2 Consumer</strong></summary>
 
 8. Discover the latest Amazon Linux 2023 AMI.
-9. Create a security group in `module.network.vpc_id`.
+9. In the root module, create a security group for the EC2 instance. Set its `vpc_id` argument to `module.network.vpc_id`, the VPC ID exposed by the child network module.
 10. Use standalone security-group rule resources to allow:
-    * HTTP on port 80 from `0.0.0.0/0`.
     * Outbound IPv4 traffic.
-    * Do not open SSH.
+    * Do not open SSH or HTTP; this lab does not deploy an application service.
 11. Create one EC2 instance:
+    * Declare `selected_public_subnet_key` as a string input with a default of `"public_a"`. Its value must match one of the keys in `public_subnets`.
     * Use `var.instance_type`.
     * Select its subnet with:
 
       ```hcl
-      subnet_id = module.network.public_subnet_ids[var.ec2_subnet_key]
+      subnet_id = module.network.public_subnet_ids[var.selected_public_subnet_key]
       ```
 
+      With the default value, Terraform evaluates this as `module.network.public_subnet_ids["public_a"]`. Changing the variable to `"public_b"` selects the other public subnet.
+
     * Assign a public IPv4 address.
-    * Use user data to install and start Nginx.
-12. Output the instance ID and application URL.
+12. Output:
+    * `instance_id`
+    * `instance_public_ip`
 
 Run:
 
@@ -185,7 +239,7 @@ terraform apply
 terraform output
 ```
 
-Open the application URL after cloud-init finishes.
+Inspect the instance ID and public IP outputs. No application endpoint is expected because this lab creates only the EC2 consumer, not an application service.
 
 Confirm that the EC2 instance is in the selected public subnet and that references to `module.network.vpc_id` and `module.network.public_subnet_ids[...]` create the required dependency automatically.
 
@@ -194,7 +248,7 @@ Confirm that the EC2 instance is in the selected public subnet and that referenc
 <details>
 <summary><strong>Part 4: Change a Consumed Module Output</strong></summary>
 
-Change `ec2_subnet_key` from `public_a` to `public_b`, then run:
+Change `selected_public_subnet_key` from `public_a` to `public_b`, then run:
 
 ```bash
 terraform plan
@@ -206,24 +260,13 @@ Inspect the attribute marked as forcing replacement and confirm that the VPC and
 
 </details>
 
-<details>
-<summary><strong>Part 5: Extend a Module Input</strong></summary>
-
-Add one subnet object with a unique CIDR and valid Availability Zone, then run `terraform plan`.
-
-Terraform should add one keyed subnet and one association without shifting existing addresses. Remove the experimental subnet before cleanup.
-
-Run another plan after removing it and confirm the configuration has returned to the previously applied shape.
-
-</details>
-
 ## Design Reflection
 
 Before opening the explanation, answer these questions:
 
 1. What is the difference between the root module and the child network module?
 2. Why can the EC2 resource wait for the module resources without an explicit `depends_on`?
-3. Can the root module access `module.network.aws_vpc.this.id` directly?
+3. Can the root module access `module.network.aws_vpc.main.id` directly?
 4. Why should the child module declare a provider requirement but avoid configuring credentials or a Region?
 5. Why are maps preferable to lists for keyed subnet instances?
 6. What Terraform command must be rerun after adding or changing a module source?

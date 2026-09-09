@@ -2,14 +2,14 @@
 
 ## Objective
 
-A legacy EC2 deployment requires a command to run on the Terraform operator's machine and a temporary SSH-based bootstrap process to install Nginx on the instance. The team also needs to understand what happens when one of those commands fails or the instance is destroyed.
+A team inherits a small legacy EC2 deployment that has no image pipeline or configuration-management process. During an incident, an operator must record the instance address on their own machine, connect to the new host over SSH, install Nginx, and leave a record when the host is removed. The team wants to understand exactly where those commands run, what Terraform knows about their side effects, and what happens when one of them fails.
 
-Use this controlled scenario to compare local and remote execution, SSH connections, creation-time and destroy-time behavior, and `on_failure = continue`. Provisioners appear in Terraform and certification material, but they are a last resort rather than the preferred configuration mechanism.
+Use this controlled scenario to compare local and remote execution, SSH connections, creation-time and destroy-time behavior, and `on_failure = continue`. The exercise is intentionally operational and imperfect: it demonstrates why provisioners appear in Terraform and certification material, while also showing why they are usually not the right production design.
 
 <details>
 <summary><strong>Santiago's Implementation</strong></summary>
 
-> **Status:** In progress. The exercise and implementation are still under review.
+> **Status:** Completed.
 
 **[View my Terraform solution](./lab_10.tf)**
 
@@ -43,10 +43,22 @@ terraform plan
 * Review [Provisioners](../../README.md#provisioners-the-last-resort).
 * Configure AWS credentials with EC2 and security-group permissions.
 * Confirm that `us-east-1` has a default VPC and subnet.
-* Create an EC2 key pair and keep its private key outside the repository.
+* Prepare an EC2 key pair for `us-east-1` and keep its private key outside the repository.
 * Determine your public IPv4 address as a `/32` CIDR.
 
 > **Security Warning:** Never commit a private key or expose SSH to `0.0.0.0/0`.
+
+<details>
+<summary>Where does the EC2 key pair come from?</summary>
+
+Yes—the private key is normally generated or stored on the laptop (or other machine) where you run Terraform. Terraform does not generate the key pair in this lab. Use one of these AWS-supported workflows before you begin:
+
+* Create the key pair in Amazon EC2. AWS stores the public key and lets you download the private key once to your computer.
+* Generate a compatible SSH key pair on your computer, keep the private key locally, and import only the public key into Amazon EC2.
+
+In both cases, `key_pair_name` identifies the public key registered in EC2, while `private_key_path` points to the matching private key on the machine running Terraform. They must represent the same key pair, and the EC2 key pair must exist in `us-east-1`.
+
+</details>
 
 > **Cost Warning:** This lab creates an EC2 instance. Complete the cleanup procedure.
 
@@ -60,7 +72,11 @@ Build the configuration in `lab_10.tf` in the order shown below. Do not open or 
 <details>
 <summary>Legacy bootstrap scenario</summary>
 
-This exercise deliberately adds commands after Terraform creates the infrastructure so you can observe provisioner behavior. For a production EC2 bootstrap, prefer an image-building process, `user_data`, cloud-init, or a configuration-management tool.
+Provisioners are imperative hooks attached to a resource. By default, a creation-time provisioner runs immediately after Terraform creates that resource, while a destroy-time provisioner runs before Terraform deletes it. Terraform records the resource, but it cannot model every side effect of the commands as part of the resource's normal desired state.
+
+HashiCorp recommends exhausting purpose-built alternatives before using provisioners. Depending on the problem, those alternatives include a prebuilt machine image, `user_data` or cloud-init for first-boot configuration, and a configuration-management tool such as Ansible for repeatable package and service configuration.
+
+This lab deliberately uses provisioners so you can observe their behavior. It is not a recommendation to install Nginx this way in a production platform.
 
 * `local-exec` runs on the machine executing Terraform.
 * `remote-exec` runs commands on a remote object and needs connectivity and authentication.
@@ -74,8 +90,9 @@ This exercise deliberately adds commands after Terraform creates the infrastruct
    * `key_pair_name`
    * `private_key_path`
    * `allowed_ssh_cidr`
-3. Read the default VPC and the subnets that belong to it.
-   * Select one subnet deterministically by sorting the returned subnet IDs and using the first element.
+   * Do not assign Terraform defaults. These values depend on the operator and must be supplied through the non-committed `personal.auto.tfvars` file shown below. A variable with no default is intentionally required at plan time.
+3. Create an `aws_vpc` data source that selects the default VPC.
+   * Use the data source's `default` argument so Terraform queries the existing default VPC instead of creating or managing one.
 4. Discover the latest available Amazon Linux 2023 AMI.
    * Restrict the owner to Amazon.
    * Filter for the Amazon Linux 2023 name pattern and the `available` state.
@@ -83,9 +100,14 @@ This exercise deliberately adds commands after Terraform creates the infrastruct
 6. Create standalone `aws_vpc_security_group_ingress_rule` resources for:
    * SSH on port 22 from `var.allowed_ssh_cidr`.
    * HTTP on port 80 from `0.0.0.0/0`.
-7. Create an `aws_vpc_security_group_egress_rule` allowing outbound IPv4 traffic.
-8. Create one `t3.micro` EC2 instance in a default subnet with a public IPv4 address.
-   * Use the discovered AMI and selected subnet.
+7. Create one `aws_vpc_security_group_egress_rule` associated with the security group.
+   * This rule controls traffic leaving the instance; it is separate from the inbound SSH and HTTP rules.
+   * Allow outbound IPv4 traffic to `0.0.0.0/0`.
+   * Set `ip_protocol = "-1"` to allow all protocols. Do not set `from_port` or `to_port` when every protocol is allowed.
+8. Create one `t3.micro` EC2 instance in a subnet from the default VPC with a public IPv4 address.
+   * Create an `aws_subnets` data source that filters existing subnets by the default VPC ID.
+   * Select one subnet deterministically by sorting the returned subnet IDs and using the first element. This reads an existing subnet; it does not create one.
+   * Use the discovered AMI and selected subnet ID.
    * Attach the security group and the configured EC2 key pair.
 
 Do not mix standalone security-group rule resources with inline `ingress` or `egress` blocks on the same security group.
@@ -121,6 +143,23 @@ Do not apply yet. Add the provisioners in Part 2 before creating the instance.
 <details>
 <summary><strong>Part 2: Add Provisioners, Deploy, and Verify</strong></summary>
 
+Provisioners are attached inside the resource that they act on. The `local-exec` provisioner runs on the machine executing Terraform and therefore does not need a `connection` block. The `remote-exec` provisioner runs commands on the EC2 instance, so it needs connection details nested inside the provisioner:
+
+```hcl
+provisioner "remote-exec" {
+  connection {
+    type        = "ssh"
+    user        = "ec2-user"
+    host        = self.public_ip
+    private_key = file(var.private_key_path)
+  }
+
+  inline = ["...commands run on the instance..."]
+}
+```
+
+`self` refers to the current `aws_instance` resource. Using `self.public_ip` avoids creating a reference cycle to the resource from inside its own block. The private key is read locally by Terraform and is used to authenticate the SSH connection; it is not uploaded as a file to the instance.
+
 9. Add a `remote-exec` provisioner to the EC2 instance.
    * Place its `connection` block inside that provisioner.
    * Set the connection type to SSH and the user to `ec2-user`.
@@ -133,6 +172,8 @@ Do not apply yet. Add the provisioners in Part 2 before creating the instance.
     * Set `when = destroy`.
     * Append a message containing `self.id` to `server_info.txt` so the creation record remains visible.
 12. Output the HTTP URL as `application_url`.
+
+Do not set `on_failure` yet. Its default is `fail`, which lets Part 3 demonstrate the normal failure behavior first.
 
 Run:
 
@@ -162,6 +203,10 @@ Inspect `server_info.txt` and open the URL. Confirm:
 
 Perform both stages below so you observe the difference rather than only reading about it.
 
+### When a creation-time provisioner fails
+
+If a creation-time provisioner fails with the default failure behavior, Terraform marks the resource as **tainted** because it may be only partially configured. During the next `terraform apply`, Terraform normally plans to replace the tainted resource. The taint is Terraform's way of refusing to trust a resource whose creation completed but whose required post-creation commands did not.
+
 **Stage A: Default failure behavior**
 
 1. Add an invalid command to the end of the `remote-exec` inline list:
@@ -178,7 +223,7 @@ terraform plan -replace=aws_instance.web_server
 terraform apply -replace=aws_instance.web_server
 ```
 
-The apply should fail when the invalid command runs. Run a normal `terraform plan` and confirm that Terraform proposes replacing the instance because the failed creation-time provisioner left it tainted.
+The apply should fail when the invalid command runs. Run a normal `terraform plan` and confirm that Terraform proposes replacing the instance because the failed creation-time provisioner left it tainted. Do not label this a normal resource drift correction: the replacement is a consequence of the failed provisioner.
 
 **Stage B: Continue after failure**
 
