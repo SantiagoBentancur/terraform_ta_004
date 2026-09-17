@@ -9,7 +9,7 @@ In this lab, you will implement those three outcomes with a `precondition`, a `p
 <details>
 <summary><strong>Santiago's Implementation</strong></summary>
 
-> **Status:** Not started. Complete the requirements below before adding your solution.
+> **Status:** Completed.
 
 **[View my Terraform solution](./lab_12.tf)**
 
@@ -66,15 +66,18 @@ The `terraform_data` resource lets this lab demonstrate those behaviors without 
 
 </details>
 
-1. Require Terraform 1.5 or later.
-2. Declare:
-   * `environment`, defaulting to `development`.
-   * `owner_email`, defaulting to `platform@example.com`.
-3. Define:
-   * A local collection containing `development`, `staging`, and `production`.
-   * A lowercase application name derived from the environment.
-4. Create `terraform_data.application` whose input contains the name, environment, and owner.
-5. Output the resulting application record.
+- **1.1 Declare variables:**
+  - `environment` as a `string`, defaulting to `development`.
+  - `owner_email` as a `string`, defaulting to `platform@example.com`.
+
+- **1.2 Define local values:**
+  - `allowed_environments`: a collection containing exactly `development`, `staging`, and `production`.
+  - `application_name`: a normalized name derived from `var.environment`. It must always be lowercase, even if the input environment is later supplied with uppercase letters. With the default input, its value should be `development`.
+
+The `application_name` local is the value that will become the record's `name` attribute in `terraform_data.application`. The `allowed_environments` local is a separate collection of accepted environment values; keep it independent from the normalized name.
+- **1.3 Create the record:** Create `terraform_data.application` whose input contains the name, environment, and owner.
+
+- **1.4 Output the record:** Output the resulting application record.
 
 Run:
 
@@ -93,8 +96,9 @@ Confirm that the output contains the expected lowercase application name, `devel
 <details>
 <summary><strong>Part 2: Add and Fail a Precondition</strong></summary>
 
-6. Add a lifecycle precondition accepting only values from the allowed-environment collection.
-7. Test it:
+- **2.1 Add the precondition:** Add a lifecycle precondition accepting only values from the allowed-environment collection.
+
+- **2.2 Test it:**
 
 ```bash
 terraform plan -var='environment=qa'
@@ -109,12 +113,14 @@ Confirm that the error is your precondition message and that the previously appl
 <details>
 <summary><strong>Part 3: Add and Fail a Postcondition</strong></summary>
 
-8. Add a postcondition confirming that the resulting name is lowercase.
-9. Inspect the result with `self.output.name`.
-10. Temporarily change the normalized name to:
+- **3.1 Add the postcondition:** Add a postcondition confirming that the resulting name is lowercase.
+
+- **3.2 Inspect the result:** Use `self.output.name` in the postcondition. Here, `self` refers to the current `terraform_data.application` resource, `output` is the record produced from its `input`, and `name` selects that record's name attribute. The postcondition must inspect this resulting resource value rather than checking `local.application_name` directly.
+
+- **3.3 Trigger a failure:** In the `locals` block, temporarily replace the `application_name` expression with:
 
 ```hcl
-normalized_name = "Customer-API-${var.environment}"
+application_name = "Customer-API-${var.environment}"
 ```
 
 Run:
@@ -133,8 +139,9 @@ Compare the plan-time and apply-time output carefully and record when Terraform 
 <details>
 <summary><strong>Part 4: Add and Fail a Check Block</strong></summary>
 
-11. Add a `check` block that uses `can(regex(...))` to evaluate the email format.
-12. Run:
+- **4.1 Add the check:** Add a `check` block that uses `can(regex(...))` to evaluate the email format.
+
+- **4.2 Test it:**
 
 ```bash
 terraform plan -var='owner_email=platform-team'
