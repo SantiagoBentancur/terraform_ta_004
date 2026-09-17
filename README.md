@@ -10,7 +10,7 @@ The goal is not to present a finished course or claim that every section is fina
 
 This is an AI-assisted project. I use OpenAI Codex as a collaborative tool to review documentation, identify inconsistencies, discuss alternatives, and help organize the material. I apply my own judgment to the suggestions, make the final decisions, implement the lab solutions, and validate the behavior. AI-generated output is treated as something to review, not as automatically correct.
 
-> **Project Status:** Ongoing. Labs 1–9 are complete, Lab 10 is in progress, and Labs 11–16 are planned and under revision. Visitors are welcome to explore the completed work and follow the project as it develops.
+> **Project Status:** Ongoing. Labs 1–12 are complete, and Labs 13–16 are planned and under revision. Visitors are welcome to explore the completed work and follow the project as it develops.
 
 ## Project Structure
 
@@ -1742,13 +1742,17 @@ Use `terraform test -filter=tests/network.tftest.hcl` to select one test file. T
 
 ## Provisioners (The "Last Resort")
 
-Terraform is a **declarative** tool (you describe the end state, and Terraform figures out how to build it). Provisioners break this rule by being **imperative** (executing a step-by-step script).
+Terraform normally asks providers to create and manage infrastructure whose desired configuration can be compared with state. A provisioner is different: it runs an imperative command or script associated with a resource, but Terraform does not model the individual changes that command makes inside the operating system or an external service.
 
-Because provisioners execute scripts outside of Terraform's control, Terraform cannot track the changes they make in the `.tfstate` file. HashiCorp strongly recommends using purpose-built alternatives and advises exhausting those alternatives before using provisioners. Terraform cannot predictably model provisioner behavior, and remote provisioners can introduce network-access, credential-management, and security complications. See HashiCorp's official [provisioner guidance](https://developer.hashicorp.com/terraform/language/provisioners).
+Unless configured with `when = destroy`, a provisioner is a **creation-time provisioner**. Terraform runs it immediately after creating the parent resource, not during every plan or apply. If it fails with the default failure behavior, Terraform stops the apply and marks the resource as tainted because it may be only partially configured. A subsequent apply normally proposes replacing that resource so it can be created and configured again.
+
+HashiCorp recommends exhausting purpose-built alternatives before using provisioners because their side effects cannot be planned and tracked as reliably as provider-managed resources. Depending on the task, alternatives include building an image with Packer, bootstrapping an instance with `user_data` or cloud-init, managing ongoing operating-system configuration with a tool such as Ansible, or using a Terraform provider that directly manages the target system or API. Remote provisioners also require Terraform to have network access and credentials for the target. See HashiCorp's official [provisioner guidance](https://developer.hashicorp.com/terraform/language/provisioners).
 
 ### `local-exec`
+
 * **Behavior:** Runs a script or command locally on the machine executing Terraform (your laptop, or the CI/CD pipeline server).
 * **Use Case:** Triggering an external API to announce a deployment finished, or writing an output IP address to a local text file.
+
 ```hcl
 resource "aws_instance" "web" {
   # ... other config ...
@@ -1760,32 +1764,62 @@ resource "aws_instance" "web" {
 ```
 
 ### `remote-exec`
+
 * **Behavior:** Logs into the newly created infrastructure over the network and executes commands directly on the machine.
 * **Use Case:** Installing software, starting services, or bootstrapping a node.
-* **Requirement:** It **must** be paired with connection settings so Terraform knows how to authenticate.
+* **Requirement:** It must have connection settings that tell Terraform how to reach and authenticate to the remote system.
+
+The following example places `connection` inside `remote-exec`, so those settings apply only to that provisioner. Because both blocks are inside `aws_instance.web`, use `self.public_ip` rather than referring to `aws_instance.web.public_ip` from inside its own resource block.
+
 ```hcl
 resource "aws_instance" "web" {
   # ... other config ...
 
   provisioner "remote-exec" {
+    connection {
+      type        = "ssh"
+      user        = "ec2-user"
+      private_key = file(var.private_key_path)
+      host        = self.public_ip
+    }
+
     inline = [
-      "sudo apt-get update",
-      "sudo apt-get install -y nginx"
+      "sudo dnf install -y nginx",
+      "sudo systemctl enable --now nginx"
     ]
   }
 }
 ```
 
 ### The `connection` Block
-A `connection` block provides the network settings and credentials (SSH or WinRM) required by `remote-exec`. It can be placed in the resource to provide defaults for its provisioners or inside an individual provisioner.
+
+A `connection` block provides the network address, connection type, user, and authentication details required to reach a remote system over SSH or WinRM. Terraform does not establish this connection merely because the block exists; a remote provisioner such as `remote-exec` uses the settings when it runs.
+
+There are two valid scopes:
+
+* Inside a resource, it provides default connection settings for the provisioners in that resource.
+* Inside a provisioner, as in the previous example, it applies only to that provisioner and overrides resource-level defaults.
+
+This resource-level form is useful when multiple remote provisioners share the same connection:
+
 ```hcl
+resource "aws_instance" "web" {
+  # ... other config ...
+
   connection {
     type        = "ssh"
-    user        = "ubuntu"
-    private_key = file(pathexpand("~/.ssh/id_rsa"))
+    user        = "ec2-user"
+    private_key = file(var.private_key_path)
     host        = self.public_ip
   }
+
+  provisioner "remote-exec" {
+    inline = ["sudo dnf install -y nginx"]
+  }
+}
 ```
+
+The host must be reachable from the machine running Terraform, and the private key must match the public key installed on the instance. Keep private keys outside the repository and restrict their filesystem permissions.
 
 ### Destroy-Time Provisioners
 By default, provisioners run immediately *after* a resource is created. You can use `when = destroy` to force a script to run immediately *before* a resource is deleted.
@@ -1797,7 +1831,7 @@ By default, provisioners run immediately *after* a resource is created. You can 
   }
 ```
 
-### The Tainted Resource Problem
+### Creation-Time Failure and Tainted Resources
 If a creation-time provisioner fails with the default failure behavior, Terraform marks the resource as **tainted** because it may be only partially configured. During the next `terraform apply`, Terraform normally plans to replace the tainted resource.
 
 A destroy-time provisioner behaves differently. If it fails, Terraform returns an error without destroying the resource and attempts the provisioner again during the next apply. Destroy-time provisioners should therefore be safe to run more than once.
