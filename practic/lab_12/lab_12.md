@@ -9,7 +9,7 @@ In this lab, you will implement those three outcomes with a `precondition`, a `p
 <details>
 <summary><strong>Santiago's Implementation</strong></summary>
 
-> **Status:** Not started. Complete the requirements below before adding your solution.
+> **Status:** Completed.
 
 **[View my Terraform solution](./lab_12.tf)**
 
