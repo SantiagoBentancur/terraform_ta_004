@@ -10,7 +10,7 @@ The goal is not to present a finished course or claim that every section is fina
 
 This is an AI-assisted project. I use OpenAI Codex as a collaborative tool to review documentation, identify inconsistencies, discuss alternatives, and help organize the material. I apply my own judgment to the suggestions, make the final decisions, implement the lab solutions, and validate the behavior. AI-generated output is treated as something to review, not as automatically correct.
 
-> **Project Status:** Ongoing. Labs 1–12 are complete, and Labs 13–16 are planned and under revision. Visitors are welcome to explore the completed work and follow the project as it develops.
+> **Project Status:** Ongoing. Labs 1–13 are complete, and Labs 14–16 are planned and under revision. Visitors are welcome to explore the completed work and follow the project as it develops.
 
 ## Project Structure
 
@@ -2627,8 +2627,12 @@ Use import when:
 ### Import Workflow
 1. Write a matching resource block in Terraform code.
 2. Run `terraform import`.
-3. Run `terraform plan`.
-4. Adjust the code until Terraform shows no unexpected changes.
+3. Run `terraform plan` to compare the configuration with the imported state and the remote object.
+4. Reconcile any differences: adjust the `.tf` configuration when the declared desired state is wrong, or investigate the remote settings when they are unexpected.
+5. Run `terraform apply` to make the approved configuration and remote object agree.
+6. Run `terraform plan` again and repeat the cycle until Terraform reports no unexpected changes.
+
+Import creates the state binding; reconciliation is the separate process of reviewing the plan, correcting the desired configuration, applying the approved changes, and confirming the result with another plan. The first plan after import may show differences such as tags or other attributes that were not represented in the initial resource block.
 
 ### Small Terraform Import Example
 Suppose an S3 bucket already exists in AWS:
@@ -2672,6 +2676,29 @@ Then run:
 ```bash
 terraform plan
 terraform apply
+terraform plan
+```
+
+Review the first plan before applying. It should show the import and any intended configuration reconciliation. The apply performs those approved changes and records the resulting state. The second plan verifies that reconciliation is complete and reports no unexpected changes.
+
+For example, after the first apply you might add a tag to the resource configuration:
+
+```hcl
+resource "aws_s3_bucket" "logs" {
+  bucket = "my-existing-company-bucket"
+
+  tags = {
+    ManagedBy = "Terraform"
+  }
+}
+```
+
+Because the existing bucket does not have that tag yet, run the reconciliation cycle again:
+
+```bash
+terraform plan    # review the tag change
+terraform apply   # add the tag to the existing bucket
+terraform plan    # confirm no unexpected changes remain
 ```
 
 ---
