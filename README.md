@@ -10,7 +10,7 @@ The goal is not to present a finished course or claim that every section is fina
 
 This is an AI-assisted project. I use OpenAI Codex as a collaborative tool to review documentation, identify inconsistencies, discuss alternatives, and help organize the material. I apply my own judgment to the suggestions, make the final decisions, implement the lab solutions, and validate the behavior. AI-generated output is treated as something to review, not as automatically correct.
 
-> **Project Status:** Ongoing. Labs 1–13 are complete, and Labs 14–16 are planned and under revision. Visitors are welcome to explore the completed work and follow the project as it develops.
+> **Project Status:** Ongoing. Labs 1–14 are complete, and Labs 15–16 are planned and under revision. Visitors are welcome to explore the completed work and follow the project as it develops.
 
 ## Project Structure
 
