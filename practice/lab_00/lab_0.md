@@ -16,7 +16,7 @@ Learn how Terraform loads configuration files, declares and assigns variables, r
 ## Project Structure
 
 ```text
-lab_0/
+lab_00/
 ├── main.tf
 ├── variables.tf
 ├── outputs.tf
@@ -101,7 +101,7 @@ output "configuration_input" {
 
 ## Phase 1: Initialize and Validate
 
-Run these commands from `practice/lab_0`:
+Run these commands from `practice/lab_00`:
 
 ```bash
 terraform init
