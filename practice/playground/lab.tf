@@ -3,7 +3,7 @@ provider "aws" {
 }
 
 variable "instance_type" {
-  type = string
+  type    = string
   default = "t2.micro"
 }
 
@@ -37,15 +37,15 @@ resource "aws_security_group" "web_traffic_rules" {
     description = "Allow SSH"
     from_port   = 22
     to_port     = 22
-    protocol    = "tcp" 
+    protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }
 }
 
 
 resource "aws_instance" "web_nodes_v2" {
-  
-  ami = data.aws_ami.latest_ubuntu.id
+
+  ami           = data.aws_ami.latest_ubuntu.id
   instance_type = var.instance_type
 
 }
