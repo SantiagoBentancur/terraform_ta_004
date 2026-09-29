@@ -571,7 +571,7 @@ Terraform combines the `.tf` files into one configuration. `terraform.tfvars` su
 
 </details>
 
-For a complete runnable exercise using this layout, see [Lab 0: Terraform Workflow and Variable Precedence](practice/lab_00/lab_0.md).
+For a complete runnable exercise using this layout, see [Lab 0: Terraform Workflow and Variable Precedence](practice/lab_00/lab_00.md).
 
 ### Comments in Terraform Code
 
@@ -3216,52 +3216,52 @@ These exercises connect the study guide with observable Terraform behavior. Each
 
 ## Labs
 
-### [Lab 0: Terraform Workflow and Variable Precedence](practice/lab_00/lab_0.md)
+### [Lab 0: Terraform Workflow and Variable Precedence](practice/lab_00/lab_00.md)
 * **Objective:** Practice Terraform's file structure, CLI workflow, variable precedence, outputs, and state without creating cloud infrastructure.
 * **Concepts Covered:** `terraform_data`, `.tf` file organization, `terraform.tfvars`, custom `-var-file` values, `TF_VAR_*`, `-var`, outputs, and basic state inspection.
 * **Suggested Reading:** [How Terraform Works](#how-terraform-works-a-first-run), [Core CLI Commands](#core-cli-commands), and [Variables and Output Values](#variables-and-output-values).
 
-### [Lab 1: Dynamic AMI Discovery](practice/lab_01/lab_1.md)
+### [Lab 1: Dynamic AMI Discovery](practice/lab_01/lab_01.md)
 * **Objective:** Deploy one EC2 instance using an Amazon Linux 2023 AMI discovered dynamically from AWS.
 * **Concepts Covered:** Provider configuration, a string input variable, the `aws_ami` data source, resource references, tags, and output values.
 * **Suggested Reading:** [Providers](#providers), [Resource Blocks and References](#resource-blocks-and-references), [Data Sources](#data-sources-data-blocks), and [Variables and Output Values](#variables-and-output-values).
 
-### [Lab 2: Multiple S3 Buckets with `count`](practice/lab_02/lab_2.md)
+### [Lab 2: Multiple S3 Buckets with `count`](practice/lab_02/lab_02.md)
 * **Objective:** Create three globally named S3 buckets from one resource block.
 * **Concepts Covered:** `aws_caller_identity`, `count`, `count.index`, `format()`, numeric resource addresses, and dynamic tags.
 * **Suggested Reading:** [Data Sources](#data-sources-data-blocks), [Essential Terraform Functions and Expressions](#essential-terraform-functions-and-expressions), and [The `count` Meta-Argument](#the-count-meta-argument).
 
-### [Lab 3: Conditional Infrastructure](practice/lab_03/lab_3.md)
+### [Lab 3: Conditional Infrastructure](practice/lab_03/lab_03.md)
 * **Objective:** Change the number and size of EC2 instances with one Boolean input.
 * **Concepts Covered:** Conditional expressions, `tostring()`, map lookup, dynamic AMI discovery, and conditional `count`.
 * **Suggested Reading:** [Data Types](#data-types), [Conditional Expressions](#conditional-expressions), and [The `count` Meta-Argument](#the-count-meta-argument).
 
-### [Lab 4: Understanding `count` with Map-Based Resources](practice/lab_04/lab_4.md)
+### [Lab 4: Understanding `count` with Map-Based Resources](practice/lab_04/lab_04.md)
 * **Objective:** Use `count` with map-based resources and observe how numeric positions behave when the map changes.
 * **Concepts Covered:** `map(object(...))`, `length()`, `keys()`, `values()`, alphabetical map-key ordering, and numeric resource addresses.
 * **Suggested Reading:** [Complex Data Types](#complex-data-types-object-and-set), [Collection Functions](#collection-functions), and [The Limitations of `count`](#limitations-of-count).
 
-### [Lab 5: Stable VPC Identities with `for_each`](practice/lab_05/lab_5.md)
+### [Lab 5: Stable VPC Identities with `for_each`](practice/lab_05/lab_05.md)
 * **Objective:** Normalize input keys and create VPC instances identified by stable string keys.
 * **Concepts Covered:** `for` expressions, local values, `for_each`, `each.key`, `each.value`, string normalization, and stable resource addresses.
 * **Suggested Reading:** [Local Values](#local-values-locals), [`for` Expressions](#for-expressions), and [`for_each` vs. `count`](#advanced-looping-for_each-vs-count).
 
-### [Lab 6: Terraform Console and Collection Transformations](practice/lab_06/lab_6.md)
+### [Lab 6: Terraform Console and Collection Transformations](practice/lab_06/lab_06.md)
 * **Objective:** Use `terraform console` to inspect, transform, filter, flatten, merge, and convert local collection values without creating cloud resources.
 * **Concepts Covered:** `terraform console`, list-producing and map-producing `for` expressions, filtering, nested transformations, collection and string functions, and type conversion.
 * **Suggested Reading:** [Local Values](#local-values-locals), [Built-in Functions](#built-in-functions), and [`for` Expressions](#for-expressions).
 
-### [Lab 7: Dynamic IAM Policy Statements](practice/lab_07/lab_7.md)
+### [Lab 7: Dynamic IAM Policy Statements](practice/lab_07/lab_07.md)
 * **Objective:** Refactor repeated IAM policy statements into a dynamic nested block and test changes through structured input data.
 * **Concepts Covered:** `map(object(...))`, IAM policy documents, `dynamic` blocks, nested `for_each`, `content`, and custom iterators.
 * **Suggested Reading:** [Complex Data Types](#complex-data-types-object-and-set), [`for_each` vs. `count`](#advanced-looping-for_each-vs-count), and [Dynamic Blocks](#dynamic-blocks).
 
-### [Lab 8: Variable Validation, Preconditions, and IAM Users](practice/lab_08/lab_8.md)
+### [Lab 8: Variable Validation, Preconditions, and IAM Users](practice/lab_08/lab_08.md)
 * **Objective:** Provision IAM users from validated structured input, reject duplicates, enforce a resource precondition, and export an ARN map.
 * **Concepts Covered:** Complex object types, type errors, multiple validation rules, `for_each`, `toset()`, lifecycle `precondition`, and output `for` expressions.
 * **Suggested Reading:** [Input Variable Validation](#input-variable-validation), [Custom Conditions](#custom-conditions-precondition--postcondition), and [`for_each` vs. `count`](#advanced-looping-for_each-vs-count).
 
-### [Lab 9: Lifecycle Guardrails and CLI Operations](practice/lab_09/lab_9.md)
+### [Lab 9: Lifecycle Guardrails and CLI Operations](practice/lab_09/lab_09.md)
 * **Objective:** Protect low-cost resources, apply a reviewed plan, inspect state, refactor an address, and request resource replacement.
 * **Concepts Covered:** Saved plans, `terraform show`, targeted `ignore_changes`, `prevent_destroy`, state inspection, `moved` blocks, `-replace`, and `terraform graph`.
 * **Suggested Reading:** [The `lifecycle` Meta-Argument](#the-lifecycle-meta-argument), [Saving and Inspecting Execution Plans](#saving-and-inspecting-execution-plans), [Terraform State Management Commands](#terraform-state-management-commands), and [State Refactoring](#state-refactoring-moved-blocks).

@@ -9,7 +9,7 @@ Rebuild the VPC scenario from Lab 4 using `for_each` instead of `count`. The env
 
 > **Status:** Completed.
 
-**[View my Terraform solution](./lab_5.tf)**
+**[View my Terraform solution](./lab_05.tf)**
 
 When completed, this implementation should:
 
@@ -46,7 +46,7 @@ terraform plan
 
 ## Step-by-Step Requirements
 
-Build the configuration in `lab_5.tf` in the order shown below. Do not open or copy another solution first.
+Build the configuration in `lab_05.tf` in the order shown below. Do not open or copy another solution first.
 
 <details>
 <summary><strong>Part 1: Rebuild the Lab 4 VPCs with `for_each`</strong></summary>

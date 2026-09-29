@@ -9,7 +9,7 @@ Build an IAM policy document with repeated `statement` blocks. First, write two 
 
 > **Status:** Completed.
 
-**[View my Terraform solution](./lab_7.tf)**
+**[View my Terraform solution](./lab_07.tf)**
 
 This implementation:
 
@@ -46,7 +46,7 @@ terraform plan
 
 ## Step-by-Step Requirements
 
-Build the configuration in `lab_7.tf` in the order shown below. Do not open the solution first.
+Build the configuration in `lab_07.tf` in the order shown below. Do not open the solution first.
 
 <details>
 <summary><strong>Part 1: Build and Test a Static Policy</strong></summary>

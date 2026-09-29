@@ -9,7 +9,7 @@ Compare the position-based identity created by `count` with the key-based identi
 
 > **Status:** Completed.
 
-**[View my Terraform solution](./lab_4.tf)**
+**[View my Terraform solution](./lab_04.tf)**
 
 When completed, this implementation should:
 
@@ -47,7 +47,7 @@ terraform plan
 
 ## Step-by-Step Requirements
 
-Build the configuration in `lab_4.tf` in the order shown below. Do not open or copy another solution first.
+Build the configuration in `lab_04.tf` in the order shown below. Do not open or copy another solution first.
 
 <details>
 <summary><strong>Part 1: Build and Apply the Count-Based VPCs</strong></summary>
@@ -141,7 +141,7 @@ Restore the original two-element map and run another plan. It should return to n
 <details>
 <summary><strong>Part 3: Compare Numeric and Key-Based Addresses</strong></summary>
 
-This is a comparison exercise only. Do not change `lab_4.tf` and do not run another apply.
+This is a comparison exercise only. Do not change `lab_04.tf` and do not run another apply.
 
 The resources created with `count` currently use numeric addresses:
 

@@ -11,7 +11,7 @@ In this lab, you will operate these buckets through a production-style workflow.
 
 > **Status:** Completed.
 
-**[View my Terraform solution](./lab_9.tf)**
+**[View my Terraform solution](./lab_09.tf)**
 
 When completed, this implementation should:
 
@@ -49,7 +49,7 @@ terraform plan
 
 ## Step-by-Step Requirements
 
-Build the configuration in `lab_9.tf` in the order shown below. Do not open or copy another solution first.
+Build the configuration in `lab_09.tf` in the order shown below. Do not open or copy another solution first.
 
 <details>
 <summary><strong>Part 1: Build, Review, and Apply a Saved Plan</strong></summary>
@@ -116,7 +116,7 @@ terraform state show aws_s3_bucket.application_logs
 
 Confirm that the state contains both resource addresses and provider-reported attributes.
 
-Also confirm that `terraform state show` reads Terraform state; it does not print the HCL resource block from `lab_9.tf`.
+Also confirm that `terraform state show` reads Terraform state; it does not print the HCL resource block from `lab_09.tf`.
 
 </details>
 

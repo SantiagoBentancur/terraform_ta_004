@@ -22,7 +22,7 @@ lab_00/
 ├── outputs.tf
 ├── terraform.tfvars
 ├── development.tfvars
-└── lab_0.md
+└── lab_00.md
 ```
 
 Terraform reads all `.tf` files in the current working directory as one configuration. Filenames such as `main.tf`, `variables.tf`, and `outputs.tf` are organizational conventions; they do not control execution order. References and the dependency graph determine operation order.

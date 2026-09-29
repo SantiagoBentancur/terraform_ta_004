@@ -9,7 +9,7 @@ Deploy one EC2 instance using an Amazon Linux 2023 AMI discovered at runtime. Fi
 
 > **Status:** Completed.
 
-**[View my Terraform solution](./lab_1.tf)**
+**[View my Terraform solution](./lab_01.tf)**
 
 When completed, this implementation should:
 
@@ -46,7 +46,7 @@ terraform plan
 
 ## Step-by-Step Requirements
 
-Build the configuration in `lab_1.tf` in the order shown below. Do not open or copy another solution first.
+Build the configuration in `lab_01.tf` in the order shown below. Do not open or copy another solution first.
 
 <details>
 <summary><strong>Part 1: Discover and Inspect the AMI</strong></summary>

@@ -9,7 +9,7 @@ Change the number and size of EC2 instances through one Boolean input. First, de
 
 > **Status:** Completed.
 
-**[View my Terraform solution](./lab_3.tf)**
+**[View my Terraform solution](./lab_03.tf)**
 
 When completed, this implementation should:
 
@@ -46,7 +46,7 @@ terraform plan
 
 ## Step-by-Step Requirements
 
-Build the configuration in `lab_3.tf` in the order shown below. Do not open or copy another solution first.
+Build the configuration in `lab_03.tf` in the order shown below. Do not open or copy another solution first.
 
 <details>
 <summary><strong>Part 1: Build and Apply the Development Configuration</strong></summary>
