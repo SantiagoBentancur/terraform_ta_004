@@ -3303,12 +3303,12 @@ These exercises connect the study guide with observable Terraform behavior. Each
 
 ## Architecture Checkpoints
 
-### [Checkpoint 1: Multi-AZ Web Compute Foundation](practice/checkpoint_1/checkpoint_1.md)
+### [Checkpoint 1: Multi-AZ Web Compute Foundation](practice/checkpoint_01/checkpoint_01.md)
 * **Objective:** Build a resilient compute foundation by distributing EC2 instances across two Availability Zones and applying shared security and storage guardrails.
 * **Concepts Covered:** Dynamic AMIs, `for_each` Availability Zone placement, variable validation, `output` mapping with `for` expressions, shared security rules, and lifecycle guardrails.
 * **Suggested Reading:** [`for_each` vs. `count`](#advanced-looping-for_each-vs-count), [Input Variable Validation](#input-variable-validation), [Resource Dependencies](#resource-dependencies), and [The `lifecycle` Meta-Argument](#the-lifecycle-meta-argument).
 
-### [Checkpoint 2: Production-Grade Three-Tier Architecture](practice/checkpoint_2/checkpoint_2.md)
+### [Checkpoint 2: Production-Grade Three-Tier Architecture](practice/checkpoint_02/checkpoint_02.md)
 * **Objective:** Build a modular three-tier AWS architecture across two Availability Zones, with public load balancing, private application instances, and an isolated PostgreSQL database tier.
 * **Concepts Covered:** Reusable modules, multi-AZ networking, public and private routing, NAT Gateway environment parity, security-group chaining, Auto Scaling, Systems Manager access, application bootstrap, ALB health checks, and RDS isolation.
 * **Suggested Reading:** [Terraform Modules](#terraform-modules), [Resource Dependencies](#resource-dependencies), [Terraform Backend](#terraform-backend), and [Terraform Security Primer](#terraform-security-primer).
