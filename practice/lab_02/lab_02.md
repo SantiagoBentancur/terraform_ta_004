@@ -9,7 +9,7 @@ Create multiple S3 buckets from one resource block. First, read the current AWS 
 
 > **Status:** Completed.
 
-**[View my Terraform solution](./lab_2.tf)**
+**[View my Terraform solution](./lab_02.tf)**
 
 When completed, this implementation should:
 
@@ -46,7 +46,7 @@ terraform plan
 
 ## Step-by-Step Requirements
 
-Build the configuration in `lab_2.tf` in the order shown below. Do not open or copy another solution first.
+Build the configuration in `lab_02.tf` in the order shown below. Do not open or copy another solution first.
 
 <details>
 <summary><strong>Part 1: Read the Account Identity</strong></summary>
