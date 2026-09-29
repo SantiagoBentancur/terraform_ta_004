@@ -47,7 +47,7 @@ Create an `output` block that uses a `for` expression to iterate over the genera
 
 ---
 
-## Terraform Code (`lab_8.tf`)
+## Terraform Code (`lab_08.tf`)
 
 ```hcl
 provider "aws" {
@@ -95,6 +95,5 @@ output "developer_arns" {
   }
 }
 ```
-
 
 

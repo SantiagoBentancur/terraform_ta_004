@@ -35,7 +35,7 @@ Create a second set of AWS SNS Topics using `for_each`.
 
 ---
 
-## Terraform Code (`lab_6.tf`)
+## Terraform Code (`lab_06.tf`)
 
 ```hcl
 provider "aws" {
@@ -74,7 +74,7 @@ This lab requires a two-phase execution. First, we build the infrastructure. The
 
 #### Phase 2: The Day 2 Modification (The Trap)
 Imagine the company shuts down the billing department. You need to remove "billing" from your infrastructure.
-1. Open your `lab_6.tf` file.
+1. Open your `lab_06.tf` file.
 2. Delete `"billing"` from the middle of your variable list:
    ```hcl
    # Change this:

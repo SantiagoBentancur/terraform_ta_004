@@ -51,7 +51,7 @@ AWS requires resource names to be lowercase and free of spaces. Create a `locals
 
 ---
 
-## Terraform Code (`lab_5.tf`)
+## Terraform Code (`lab_05.tf`)
 
 ```hcl
 provider "aws" {

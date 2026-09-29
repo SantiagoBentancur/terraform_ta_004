@@ -18,7 +18,7 @@ Concepts to Practice
 Objective
 ---------
 
-Refactor checkpoint_1 (Compute + Storage) into a professional, reusable modular architecture. You will split your configuration into two distinct domains (web_cluster and storage_vault) and orchestrate them from a single Root Module.
+Refactor checkpoint_01 (Compute + Storage) into a professional, reusable modular architecture. You will split your configuration into two distinct domains (web_cluster and storage_vault) and orchestrate them from a single Root Module.
 
 Directory Setup
 ---------------

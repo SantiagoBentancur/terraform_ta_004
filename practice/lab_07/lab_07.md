@@ -26,7 +26,7 @@ Delete the hardcoded blocks and replace them with a `dynamic` block.
 
 ---
 
-## Terraform Code (`lab_7.tf`)
+## Terraform Code (`lab_07.tf`)
 
 ### Phase 1 Code: The Static Approach
 Copy this into your `main.tf` and run `terraform plan` to see what it generates.

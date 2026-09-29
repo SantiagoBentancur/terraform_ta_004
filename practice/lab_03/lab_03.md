@@ -26,7 +26,7 @@ Build a dynamic Terraform configuration that changes its behavior, instance size
 
 ---
 
-## Terraform Code (`lab_3.tf`)
+## Terraform Code (`lab_03.tf`)
 
 ```hcl
 provider "aws" {

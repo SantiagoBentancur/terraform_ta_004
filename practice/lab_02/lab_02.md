@@ -25,7 +25,7 @@ Build a dynamic Terraform configuration that deploys multiple storage buckets si
 
 ---
 
-## Terraform Code (`lab_2.tf`)
+## Terraform Code (`lab_02.tf`)
 
 ```hcl
 provider "aws" {

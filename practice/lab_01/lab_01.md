@@ -27,7 +27,7 @@ Configure a foundational Terraform deployment that dynamically queries the cloud
 
 ---
 
-## Terraform Code (`lab_1.tf`)
+## Terraform Code (`lab_01.tf`)
 
 ```hcl
 provider "aws" {

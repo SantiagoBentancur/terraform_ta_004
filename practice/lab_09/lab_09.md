@@ -13,7 +13,7 @@ Deploy a mock production database (using an S3 bucket to stay in the free tier) 
 
 ---
 
-## Terraform Code (`lab_9.tf`)
+## Terraform Code (`lab_09.tf`)
 
 ```hcl
 provider "aws" {
@@ -74,7 +74,7 @@ In a production pipeline, you save the plan to a binary file to guarantee what i
 #### Phase 3: The `moved` Block Refactor & Troubleshooting
 Your lead architect wants the `app_server` resource renamed to `frontend_web_server` to match new naming conventions. 
 
-1. **The Trap:** Go to the bottom of `lab_9.tf` and uncomment the `moved` block. Do NOT change anything else. 
+1. **The Trap:** Go to the bottom of `lab_09.tf` and uncomment the `moved` block. Do NOT change anything else.
 2. **The Error:** Run `terraform plan`. You will get a fatal error: `Error: Moved object still exists`. This happens because you told Terraform to move the address, but the old resource name (`app_server`) is still physically typed out in your file!
 3. **The Fix:** Go up to the EC2 resource block and rename it: change `resource "aws_instance" "app_server"` to `resource "aws_instance" "frontend_web_server"`.
 4. **The Validation:** Run `terraform plan` again. Terraform will now output `Plan: 0 to add, 0 to change, 0 to destroy`, with a note that it intends to move the state address.
