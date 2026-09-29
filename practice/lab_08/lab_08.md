@@ -11,7 +11,7 @@ Begin by modeling the request as one structured input and creating the IAM users
 
 > **Status:** Completed.
 
-**[View my Terraform solution](./lab_8.tf)**
+**[View my Terraform solution](./lab_08.tf)**
 
 When completed, this implementation should:
 
@@ -51,7 +51,7 @@ terraform plan
 
 ## Step-by-Step Requirements
 
-Build the configuration in `lab_8.tf` in the order shown below. Do not open or copy another solution first.
+Build the configuration in `lab_08.tf` in the order shown below. Do not open or copy another solution first.
 
 <details>
 <summary><strong>Part 1: Build and Test the Team Resources</strong></summary>
