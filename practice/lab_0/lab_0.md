@@ -101,7 +101,7 @@ output "configuration_input" {
 
 ## Phase 1: Initialize and Validate
 
-Run these commands from `practic/lab_0`:
+Run these commands from `practice/lab_0`:
 
 ```bash
 terraform init
