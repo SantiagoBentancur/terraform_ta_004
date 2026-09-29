@@ -2,14 +2,14 @@
 
 ## Objective
 
-Your team has a Terraform workload whose state exists only on one operator's machine. Before the configuration can be used collaboratively, the state must move to protected remote storage with locking, but the backend bucket must already exist before Terraform can use it.
+Learn how Terraform moves from local state to a shared, protected S3 backend. You will create the backend storage separately, migrate an existing workload state without recreating its resources, enable S3 native locking, and use CLI workspaces to observe separate remote state locations.
 
-In this lab, you will bootstrap that S3 bucket separately, create a workload with local state, and migrate the state through a partially configured backend. You will then enable native S3 lockfiles and compare how the default and named CLI workspaces use different remote state paths.
+By the end of the lab, you should understand why backend infrastructure must be bootstrapped separately, how `-migrate-state` differs from `-reconfigure`, how lockfiles protect concurrent operations, and how workspace selection changes the state instance Terraform reads and writes.
 
 <details>
 <summary><strong>Santiago's Implementation</strong></summary>
 
-> **Status:** Not started. Complete the requirements below before adding your solution.
+> **Status:** Completed.
 
 * [Bootstrap configuration](./bootstrap/main.tf)
 * [Workload configuration](./workload/main.tf)

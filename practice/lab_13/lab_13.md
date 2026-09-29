@@ -9,7 +9,7 @@ In this lab, you will follow that complete ownership lifecycle: import the exist
 <details>
 <summary><strong>Santiago's Implementation</strong></summary>
 
-> **Status:** Not started. Complete the requirements below before adding your solution.
+> **Status:** Completed.
 
 **[View my Terraform solution](./lab_13.tf)**
 
@@ -90,6 +90,8 @@ Confirm its existence with `aws s3api head-bucket`, and confirm that `terraform 
 4. Declare `aws_s3_bucket.imported` with:
    * `bucket = var.bucket_name`
    * `Purpose` and `ManagedBy` tags
+
+   Here, `imported` is the resource's Terraform label; it is not a special keyword.
 5. Output the managed bucket name.
 
 Run:
@@ -118,7 +120,31 @@ terraform state list
 terraform state show aws_s3_bucket.imported
 ```
 
-CLI import creates the state binding but does not generate a complete desired configuration.
+CLI import creates the state binding between `aws_s3_bucket.imported` and the existing AWS bucket. It does not write or complete the `.tf` configuration for you, and it does not automatically copy every remote setting into your desired configuration. The resource block remains the configuration Terraform compares against the imported state.
+
+The ownership flow in this lab is:
+
+```text
+AWS bucket created manually
+          │
+          ▼
+terraform import
+          │
+          ▼
+Terraform state binds the bucket to aws_s3_bucket.imported
+          │
+          ▼
+plan/apply reconciles the .tf configuration with the bucket
+          │
+          ▼
+moved block changes the Terraform address without replacing it
+          │
+          ▼
+removed { destroy = false } removes the state binding only
+          │
+          ▼
+The bucket remains in AWS and is deleted manually during cleanup
+```
 
 Reconcile the imported object:
 
@@ -136,7 +162,13 @@ Before applying the reconciliation plan, confirm that it does not propose replac
 <details>
 <summary><strong>Part 4: Rename the Terraform Address</strong></summary>
 
-Rename the resource from `imported` to `archive`, update references, and add:
+Rename only the Terraform resource label from `imported` to `archive`:
+
+* Change `resource "aws_s3_bucket" "imported"` to `resource "aws_s3_bucket" "archive"`.
+* If you created the Part 2 output, update its resource reference from `aws_s3_bucket.imported` to `aws_s3_bucket.archive`.
+* Keep `bucket = var.bucket_name` unchanged. Do not rename or recreate the actual AWS bucket.
+
+Then add this migration declaration:
 
 ```hcl
 moved {
@@ -153,7 +185,7 @@ terraform apply -var="bucket_name=$BUCKET_NAME"
 terraform state list
 ```
 
-The state address should change without replacing the bucket solely because of the rename. Keep the `moved` block as migration history.
+The state address should change without replacing the bucket solely because of the Terraform label rename. Keep the `moved` block as migration history.
 
 Confirm that:
 

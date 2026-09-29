@@ -9,7 +9,7 @@ In this lab, you will pass a disposable secret through a sensitive ephemeral inp
 <details>
 <summary><strong>Santiago's Implementation</strong></summary>
 
-> **Status:** Not started. Complete the requirements below before adding your solution.
+> **Status:** Completed.
 
 **[View my Terraform solution](./lab_16.tf)**
 
@@ -69,8 +69,8 @@ Build the configuration in `lab_16.tf` in the order shown below. Do not open or 
 3. Declare `parameter_value` as a required string with:
    * `sensitive = true`
    * `ephemeral = true`
-4. Declare numeric `secret_version`, defaulting to `1`.
-5. Validate that the version is a positive whole number.
+4. Declare numeric `secret_version`, defaulting to `1`. This is a non-secret rotation counter, not the secret value itself; increase it when you intentionally rotate the secret.
+5. Validate that `secret_version` is a positive whole number: `1`, `2`, and `3` are valid, while `0`, negative numbers, and decimal values such as `1.5` are invalid.
 6. Create an SSM `SecureString` parameter:
    * Pass the secret to `value_wo`.
    * Pass the version to `value_wo_version`.
@@ -105,6 +105,8 @@ export TF_VAR_parameter_value
 echo
 ```
 
+This command asks you to type a disposable secret without displaying it. The value is held temporarily in the shell variable `TF_VAR_parameter_value`, which Terraform automatically uses for the required `parameter_value` variable. Do not put the secret in `terraform.tfvars`, a command-line argument, or a committed file.
+
 Then run:
 
 ```bash
@@ -112,7 +114,7 @@ terraform plan -out=secret.plan
 terraform apply secret.plan
 ```
 
-Terraform uses the ephemeral value during the operation but omits it from the saved plan and state.
+The plan previews the SSM parameter creation and saves the plan to `secret.plan`; the apply executes that approved plan. Terraform passes the temporary value to the provider's `value_wo` argument, which writes it to the `SecureString` parameter named in the resource. Because the variable is ephemeral and the argument is write-only, Terraform omits the secret from the saved plan and state while AWS Parameter Store retains it.
 
 Review the plan without attempting to decode or search for a real credential. Use only the disposable lab value and confirm that normal CLI output does not reveal it.
 

@@ -9,7 +9,7 @@ In this lab, you will configure AWS for `us-east-1` and `us-west-2` in the root 
 <details>
 <summary><strong>Santiago's Implementation</strong></summary>
 
-> **Status:** Not started. Complete the requirements below before adding your solution.
+> **Status:** Completed.
 
 * [Root module](./main.tf)
 * [Child module](./modules/regional_inventory/main.tf)
@@ -72,7 +72,7 @@ Build the root and child module files in the order shown below. Do not open or c
 
 The root module owns the concrete AWS Regions and credentials. The reusable child module declares two provider names for its regional queries, and the caller decides which configured AWS provider each name receives.
 
-A provider requirement selects a plugin and version source. A `provider` block configures one instance of that plugin. A reusable child module declares requirements and expected aliases but receives concrete configurations from its caller.
+A provider requirement selects a plugin and version source. A `provider` block configures one instance of that plugin. A reusable child module declares requirements and expected aliases but receives concrete configurations from its caller. Review the provider-alias and module-mapping explanations in the main README before starting Part 1.
 
 </details>
 
@@ -80,13 +80,13 @@ A provider requirement selects a plugin and version source. A `provider` block c
    * Declare the AWS provider requirement.
    * Configure the unaliased default AWS provider for `us-east-1`.
    * Configure `aws.west` for `us-west-2`.
-2. In the child module:
-   * Declare its AWS provider requirement.
-   * Declare `aws.primary` and `aws.secondary` under `configuration_aliases`.
-   * Do not add provider configuration blocks.
-   * Query available zones once through each expected provider.
-   * Output both lists in one object.
-3. Call the child module and map:
+2. In `modules/regional_inventory/main.tf` and `modules/regional_inventory/outputs.tf`:
+   * Declare the AWS provider requirement in the child module's `terraform` block.
+   * List `aws.primary` and `aws.secondary` in `configuration_aliases`. These are the provider names that the child expects to receive; they are not AWS Regions and do not configure credentials.
+   * Do not add any `provider "aws"` configuration block in the child module.
+   * Add one `aws_availability_zones` data source for the primary query and one for the secondary query. Set each data source's `provider` argument to the corresponding child alias.
+   * Add one child output that returns both data-source name lists in a single object, with separate `primary` and `secondary` keys.
+3. In the root `main.tf`, call the child module with its local source and map the root provider configurations to the aliases declared by the child:
 
 ```hcl
 providers = {
@@ -95,7 +95,7 @@ providers = {
 }
 ```
 
-4. Expose the module result as `regional_inventory`.
+The left side names (`aws.primary` and `aws.secondary`) must match the child's `configuration_aliases`. The right side names (`aws` and `aws.west`) must match the provider configurations declared in the root module. Expose the child output through a root output named `regional_inventory`.
 
 Run:
 
@@ -152,6 +152,8 @@ Read the diagnostic and identify that removing the alias did not merge configura
 
 <details>
 <summary><strong>Part 4: Examine the All-Aliased Trap</strong></summary>
+
+This experiment demonstrates what happens when a module has no unaliased default provider. It is not about creating AWS resources; it shows why every resource or module that expects the default `aws` configuration must receive an explicit provider mapping when all root configurations are aliased.
 
 Do not apply this experiment. Add `alias = "east"` to the previously unaliased provider and update the mapping to use `aws.east`.
 
