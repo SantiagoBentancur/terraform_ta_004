@@ -109,82 +109,6 @@ terraform destroy
 
 The following sections explain each part of this workflow in more detail, beginning with the core commands and then the providers, lock file, configuration, and state that make the workflow possible.
 
----
-
-
-## Resource Blocks and References
-
-A **resource** is a primary building block in Terraform. It represents a managed object whose lifecycle Terraform can create, update, track, or destroy. This may be physical infrastructure, such as an EC2 instance, or a logical object, such as an IAM policy, DNS record, GitHub repository, or `terraform_data` resource.
-
-Examples:
-
-* An AWS EC2 instance
-* An AWS VPC
-* An S3 bucket
-* A security group
-* An IAM user
-* A DNS record
-* A built-in `terraform_data` resource
-
-### Resource Block Anatomy
-
-```hcl
-resource "aws_s3_bucket" "web" {
-  bucket_prefix = "web-server-"
-
-  tags = {
-    Name = "web-server"
-  }
-}
-```
-
-In this example:
-* **`resource`**: Tells Terraform you are declaring infrastructure to manage.
-* **`aws_s3_bucket`**: The resource type. It comes from the AWS provider and tells Terraform what kind of object to create.
-* **`web`**: The local name used to distinguish this block from other resources of the same type.
-* **`aws_s3_bucket.web`**: The resource address used to identify and reference it in the Terraform configuration.
-* **Arguments:** Values you configure inside the block, such as `bucket_prefix` and `tags`.
-
-The general resource-address syntax is:
-
-```text
-<RESOURCE_TYPE>.<LOCAL_NAME>
-```
-
-### Arguments vs. Attributes
-
-* **Arguments** are values you provide to Terraform as input for a resource.
-  * Example: `bucket_prefix = "web-server-"`
-* **Attributes** are values Terraform can read from a resource, often after the resource is created.
-  * Example: `aws_s3_bucket.web.arn`
-
-Some values are both configurable arguments and readable attributes, depending on the resource type. Provider documentation tells you which fields are supported.
-
-### Resource Attribute References
-
-You can reference the attribute of one resource and use it in another resource.
-
-* **Syntax:** `<RESOURCE_TYPE>.<LOCAL_NAME>.<ATTRIBUTE>`
-
-```hcl
-resource "terraform_data" "source" {
-  input = "original-value"
-}
-
-resource "terraform_data" "copy" {
-  input = terraform_data.source.output
-}
-```
-
-Here, `terraform_data.source.output` means:
-* `terraform_data`: Resource type
-* `source`: Local resource name
-* `output`: Attribute exported by that resource
-
-Terraform also uses references to infer dependencies. Because `terraform_data.copy` reads an attribute from `terraform_data.source`, Terraform handles `source` before `copy`.
-
----
-
 ## Configuration, State, and Remote Objects
 
 Terraform uses a **declarative** approach: you describe the desired result instead of writing a sequence of API instructions.
@@ -217,5 +141,7 @@ Within an object's attribute changes:
 > **Before Applying a Replacement:** Confirm that every replacement is intentional and inspect the attributes marked `# forces replacement`. Evaluate downtime, dependency, naming, quota, and persistent-data consequences; create or verify backups when applicable. For important changes, save the reviewed plan with `terraform plan -out=<filename>.plan` and apply that exact artifact with `terraform apply <filename>.plan`.
 
 During `terraform apply`, providers translate the approved actions into API operations. As operations complete, Terraform records the results in state. If someone changes a managed object outside Terraform, a later plan can detect this **drift** and propose how to reconcile it with the configuration.
+
+These concepts explain Terraform's overall model: configuration describes the desired result, state records Terraform's understanding, and providers interact with the real infrastructure. Chapter 2 now moves from that model to the Terraform building blocks used to express it, including providers, resources, references, variables, and outputs.
 
 ---
