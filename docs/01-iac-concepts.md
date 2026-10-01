@@ -2,9 +2,22 @@
 
 This chapter introduces the ideas behind Infrastructure as Code and Terraform's desired-state model.
 
+## What Infrastructure as Code Means
+
+**Infrastructure as Code (IaC)** means describing and managing infrastructure with version-controlled, human-readable configuration instead of relying on a sequence of manual console actions or undocumented commands. The configuration can describe resources such as networks, servers, databases, permissions, and DNS records.
+
+IaC is useful because the configuration can be:
+
+* **Repeatable:** the same definition can be used to create consistent environments.
+* **Reviewable:** infrastructure changes can be inspected in a diff before they are applied.
+* **Auditable:** version history shows what changed, when, and why.
+* **Automatable:** standard workflows can validate, plan, and apply changes without repeating manual steps.
+
+Terraform is one IaC tool. It uses a **declarative** model: you describe the desired result, and Terraform calculates the operations required to reconcile that desired result with the infrastructure that exists.
+
 ## How Terraform Works: A First Run
 
-Terraform is a **declarative** infrastructure-as-code tool. You describe the result you want in `.tf` configuration files rather than writing every API operation required to produce that result. Terraform then determines which actions are necessary to make the managed objects match the configuration.
+Terraform uses `.tf` configuration files to describe the result you want rather than requiring you to write every API operation. It then determines which actions are necessary to make the managed objects match the configuration.
 
 The initial workflow is:
 

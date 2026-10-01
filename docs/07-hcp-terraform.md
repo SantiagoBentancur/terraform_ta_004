@@ -1,4 +1,4 @@
-# HCP Terraform and Terraform Enterprise
+# Vault, HCP Terraform, and Terraform Enterprise
 
 Vault integration, HCP Terraform workspaces, runs, governance, and collaboration platforms.
 

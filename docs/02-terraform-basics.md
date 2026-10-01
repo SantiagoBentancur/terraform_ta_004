@@ -341,7 +341,7 @@ Terraform combines the `.tf` files into one configuration. `terraform.tfvars` su
 
 </details>
 
-For a complete runnable exercise using this layout, see [Lab 0: Terraform Workflow and Variable Precedence](practice/lab_00/lab_00.md).
+For a complete runnable exercise using this layout, see [Lab 0: Terraform Workflow and Variable Precedence](../practice/lab_00/lab_00.md).
 
 ### Comments in Terraform Code
 
